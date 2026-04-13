@@ -177,11 +177,11 @@ jobs:
         with:
           version: 'latest'
 
-      - name: Drain Dataflow Job
-        run: |
-          JOB_ID=$(gcloud dataflow jobs list --region=us-east4 --filter="name:sw-oden-pubsub-to-gcs" |grep JOB_ID | awk '/:/ {print $2}')
-          echo "  Draining Dataflow Job $JOB_ID"
-          gcloud dataflow jobs drain $JOB_ID --region=us-east4
+      # - name: Drain Dataflow Job
+      #   run: |
+      #     JOB_ID=$(gcloud dataflow jobs list --region=us-east4 --filter="name:sw-oden-pubsub-to-gcs" |grep JOB_ID | awk '/:/ {print $2}')
+      #     echo "  Draining Dataflow Job $JOB_ID"
+      #     gcloud dataflow jobs drain $JOB_ID --region=us-east4
 
       - name: Deploy Dataflow Flex Template
         run: |
