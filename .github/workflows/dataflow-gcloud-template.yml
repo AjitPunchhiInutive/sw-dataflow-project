@@ -100,7 +100,7 @@ jobs:
           echo "  Project           : sw-dev-prj-sandbox"
           echo "  Service Acct      : dataflow-runner@sw-dev-prj-sandbox.iam.gserviceaccount.com"
           echo "  Network           : dataflow-network"
-          echo "  Subnetwork        : projects/sw-dev-prj-sandbox/regions/us-east4/subnetworks/dataflow-subnet"
+          echo "  Subnetwork        : regions/us-east4/subnetworks/dataflow-subnet"
           echo "  Public IPs        : Disabled"
           echo "  Streaming Engine  : Enabled"
           echo "  Input Subscription: projects/sw-dev-prj-sandbox/subscriptions/proficy-historian-topic"
@@ -192,7 +192,7 @@ jobs:
             --template-file-gcs-location="gs://sw-rds-dataflow-gcs-itp/templates/oden-gcs-parquet-${{ github.run_id }}.json" \
             --service-account-email="dataflow-runner@sw-dev-prj-sandbox.iam.gserviceaccount.com" \
             --network="dataflow-network" \
-            --subnetwork="projects/sw-dev-prj-sandbox/regions/us-east4/subnetworks/dataflow-subnet" \
+            --subnetwork="regions/us-east4/subnetworks/dataflow-subnet" \
             --disable-public-ips \
             --enable-streaming-engine \
             --parameters input_subscription="projects/sw-dev-prj-sandbox/subscriptions/proficy-historian-topic" \
