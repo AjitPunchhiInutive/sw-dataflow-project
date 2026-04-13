@@ -50,64 +50,7 @@ jobs:
           project_id:  ${{ secrets.GCP_PROJECT_ID }}
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
-      
-      # - name: Validate inputs
-      #   run: |
-      #     echo "Checking required files..."
-      #     test -f ./dataflowscript/metadata.json && echo "metadata.json ✓" || (echo "metadata.json NOT FOUND ✗" && exit 1)
-      #     test -f ./dataflowscript/oden_pubsub_to_gcs.py && echo "py file ✓" || (echo "py file NOT FOUND ✗" && exit 1)
-      #     test -f ./dataflowscript/requirements.txt && echo "requirements.txt ✓" || (echo "requirements.txt NOT FOUND ✗" && exit 1)
 
-      # - name: Run Gloud Command
-      #   run: |
-      #       ls -la;           
-      #       gcloud dataflow flex-template build \
-      #         gs://python-code-sw-rds-python-bucket/templates/oden-gcs-parquet.json \
-      #         --image-gcr-path="us-east4-docker.pkg.dev/sw-dev-prj-itp-secrets/sw-dataflow-templates/oden-gcs-parquet:latest" \
-      #         --sdk-language=PYTHON \
-      #         --flex-template-base-image=PYTHON3 \
-      #         --py-path="." \
-      #         --env=FLEX_TEMPLATE_PYTHON_PY_FILE=./dataflowscript/oden_pubsub_to_gcs.py \
-      #         --env=FLEX_TEMPLATE_PYTHON_REQUIREMENTS_FILE=./dataflowscript/requirements.txt \
-      #         --metadata-file=./dataflowscript/metadata.json \
-      #         --project=sw-dev-prj-itp-secrets \
-      #         --verbosity=debug;
-      #       ls -la;
-
-
-      
-    #   - name: Install tfsec
-    #     run: |
-    #       wget -q https://github.com/aquasecurity/tfsec/releases/download/v${{ env.TFSEC_VERSION }}/tfsec-linux-amd64 -O tfsec
-    #       chmod +x tfsec
-    #       sudo mv tfsec /usr/local/bin/tfsec
-    #       tfsec --version
-
-    #   - name: Run tfsec scan
-    #     run: |
-    #       echo "scanning directory: $(pwd)"
-    #       tfsec . --soft-fail
-    #       echo "tfsec scan complete"
-      
-    #   - name: Save tfsec SARIF report
-    #     if: always()
-    #     run: |
-    #       tfsec . --format sarif --soft-fail > tfsec.sarif || true
-          
-    #   - name: Upload tfsec results to GitHub Security tab
-    #     uses: github/codeql-action/upload-sarif@v3.28.5
-    #     if: always()
-    #     with:
-    #       sarif_file: tfsec.sarif
-
-    #   - name: Save tfsec report as artifact
-    #     uses: actions/upload-artifact@v4
-    #     if: always()
-    #     with:
-    #       name: tfsec-report
-    #       path: tfsec.sarif
-    #       retention-days: 30
-      
       - name: Terraform Init
         run: terraform init
 
@@ -115,7 +58,7 @@ jobs:
         run: terraform validate
 
       - name: Terraform Plan
-        run: terraform plan -var-file=sw-rds-service-prj.tfvars -out=tfplan
+        run: terraform plan -var-file=sw-dataflow-project.tfvars -out=tfplan
 
       - name: Upload Plan Artifact
         uses: actions/upload-artifact@v4.6.2
@@ -180,7 +123,7 @@ jobs:
 
       # Fresh plan after approval — this is the plan that will be applied
       - name: Terraform Plan
-        run: terraform plan -var-file=sw-rds-service-prj.tfvars -out=tfplan
+        run: terraform plan -var-file=sw-dataflow-project.tfvars -out=tfplan
 
       - name: Upload Plan Artifact
         uses: actions/upload-artifact@v4.6.2
