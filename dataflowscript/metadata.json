@@ -1,0 +1,28 @@
+{
+        "description": "Reads Oden OT messages from Pub/Sub, parses JSON, writes Parquet to GCS",
+        "name": "Oden PubSub to GCS Parquet",
+        "parameters": [
+            {
+                "helpText": "Full path: projects/sw-dev-prj-itp-secrets/subscriptions/proficy-historian-topic",
+                "label": "Pub/Sub Subscription",
+                "name": "input_subscription"
+            },
+            {
+                "helpText": "e.g. gs://python-code-sw-rds-python-bucket/data/oden/bronze",
+                "label": "GCS Output Path",
+                "name": "output_path"
+            },
+            {
+                "helpText": "Default: 60",
+                "isOptional": true,
+                "label": "Window Size (seconds)",
+                "name": "window_size"
+            },
+            {
+                "helpText": "Default: 1",
+                "isOptional": true,
+                "label": "Number of Shards",
+                "name": "num_shards"
+            }
+        ]
+    }

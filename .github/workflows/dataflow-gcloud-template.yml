@@ -1,0 +1,198 @@
+# name: Dataflow Template Build
+
+# on:
+#   pull_request:
+#     branches:
+#       - main
+#     paths:
+#       - 'dataflowscript/**'
+#   workflow_dispatch:
+
+# env:
+#   TF_DIR: ./dataflowscript
+
+# jobs:
+#   build-dataflow-template:
+#     name: Build Dataflow Flex Template
+#     runs-on: ubuntu-latest
+
+#     permissions:
+#       contents: read
+#       id-token: write
+
+#     steps:
+#       - name: Checkout Code
+#         uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0
+
+#       - name: Authenticate to Google Cloud
+#         uses: google-github-actions/auth@v2
+#         with:
+#           project_id: ${{ secrets.GCP_PROJECT_ID }}
+#           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+#           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+#       - name: Setup GCloud CLI
+#         uses: google-github-actions/setup-gcloud@v2
+#         with:
+#           version: 'latest'
+
+#       - name: Build Dataflow Flex Template
+#         run: |
+#           echo "Building Dataflow Flex Template and uploading to GCS...${{ github.run_id }}"
+#           gcloud dataflow flex-template build \
+#             gs://python-code-sw-rds-python-bucket/templates/oden-gcs-parquet-${{ github.run_id }}.json \
+#             --image-gcr-path="us-east4-docker.pkg.dev/sw-dev-prj-itp-secrets/sw-dataflow-templates/oden-gcs-parquet:${{ github.run_id }}" \
+#             --sdk-language=PYTHON \
+#             --flex-template-base-image=PYTHON3 \
+#             --py-path="." \
+#             --env=FLEX_TEMPLATE_PYTHON_PY_FILE=./dataflowscript/oden_pubsub_to_gcs.py \
+#             --env=FLEX_TEMPLATE_PYTHON_REQUIREMENTS_FILE=./dataflowscript/requirements.txt \
+#             --metadata-file=./dataflowscript/metadata.json \
+#             --project=sw-dev-prj-itp-secrets \
+#             --verbosity=debug
+
+#       - name: Confirm Template Upload
+#         run: |
+#           echo "Verifying template was uploaded to GCS..."
+#           gsutil ls gs://python-code-sw-rds-python-bucket/templates/oden-gcs-parquet-${{ github.run_id }}.json
+
+#   # ──────────────────────────────────────────
+#   # Step 2: Plan — show what will be deployed
+#   # ──────────────────────────────────────────
+#   plan-dataflow-template:
+#     name: Plan Dataflow Deployment
+#     needs: build-dataflow-template
+#     runs-on: ubuntu-latest
+
+#     permissions:
+#       contents: read
+#       id-token: write
+
+#     steps:
+#       - name: Checkout Code
+#         uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0
+
+#       - name: Authenticate to Google Cloud
+#         uses: google-github-actions/auth@v2
+#         with:
+#           project_id: ${{ secrets.GCP_PROJECT_ID }}
+#           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+#           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+#       - name: Setup GCloud CLI
+#         uses: google-github-actions/setup-gcloud@v2
+#         with:
+#           version: 'latest'
+
+#       - name: Show Deployment Plan
+#         run: |
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  DATAFLOW DEPLOYMENT PLAN"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo ""
+#           echo "  Job Name      : oden-gcs-parquet-${{ github.run_id }}"
+#           echo "  Template      : gs://python-code-sw-rds-python-bucket/templates/oden-gcs-parquet-${{ github.run_id }}.json"
+#           echo "  Region        : us-east4"
+#           echo "  Project       : sw-dev-prj-itp-secrets"
+#           echo "  Service Acct  : dataflow-runner@sw-dev-prj-itp-secrets.iam.gserviceaccount.com"
+#           echo "  Subnetwork    : regions/us-east4/subnetworks/dataflow-subnet"
+#           echo ""
+
+#       - name: Validate Template Exists in GCS
+#         run: |
+#           echo "Validating template is available in GCS before deploy..."
+#           gsutil stat gs://python-code-sw-rds-python-bucket/templates/oden-gcs-parquet-${{ github.run_id }}.json
+#           echo "✅ Template found — ready for deployment"
+
+#       - name: Preview Active Dataflow Jobs
+#         run: |
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  Currently Running Dataflow Jobs"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           gcloud dataflow jobs list \
+#             --region="us-east4" \
+#             --project=sw-dev-prj-itp-secrets \
+#             --filter="currentState=JOB_STATE_RUNNING" \
+#             --format="table(id, name, currentState, startTime)"
+
+#   # ──────────────────────────────────────────
+#   # Step 3: Approval gate after plan review
+#   # ──────────────────────────────────────────
+#   approval:
+#     name: Approval Gate
+#     needs: plan-dataflow-template       # ← waits for plan, not build
+#     runs-on: ubuntu-latest
+
+#     permissions:
+#       contents: read
+
+#     environment:
+#       name: dataflow-approval
+#       url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+#     steps:
+#       - name: Approval Required
+#         run: |
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  Review the plan above, then approve"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo " Approval granted - proceeding to deploy"
+
+#   # ──────────────────────────────────────────
+#   # Step 4: Deploy after approval
+#   # ──────────────────────────────────────────
+#   deploy-dataflow-template:
+#     name: Deploy Dataflow Flex Template
+#     needs: approval
+#     runs-on: ubuntu-latest
+
+#     permissions:
+#       contents: read
+#       id-token: write
+
+#     steps:
+#       - name: Checkout Code
+#         uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0
+
+#       - name: Authenticate to Google Cloud
+#         uses: google-github-actions/auth@v2
+#         with:
+#           project_id: ${{ secrets.GCP_PROJECT_ID }}
+#           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+#           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+#       - name: Setup GCloud CLI
+#         uses: google-github-actions/setup-gcloud@v2
+#         with:
+#           version: 'latest'
+
+#       - name: Drain Dataflow Job
+#         run: |
+#           JOB_ID=$(gcloud dataflow jobs list --region=us-east4 --filter="name:sw-test" |grep JOB_ID | awk '/:/ {print $2}')
+#           echo ""
+#           gcloud dataflow jobs drain $JOB_ID --region=us-east4
+
+#       - name: Deploy Dataflow Flex Template
+#         run: |
+#           echo "Deploying Dataflow Flex Template from GCS...${{ github.run_id }}"
+#           gcloud dataflow flex-template run "oden-gcs-parquet-${{ github.run_id }}" \
+#             --template-file-gcs-location="gs://python-code-sw-rds-python-bucket/templates/oden-gcs-parquet-${{ github.run_id }}.json" \
+#             --region="us-east4" \
+#             --service-account-email="dataflow-runner@sw-dev-prj-itp-secrets.iam.gserviceaccount.com" \
+#             --subnetwork="regions/us-east4/subnetworks/dataflow-subnet" \
+#             --project=sw-dev-prj-itp-secrets
+
+#       - name: Confirm Dataflow Job Launched
+#         run: |
+#           echo "Verifying Dataflow job was launched..."
+#           gcloud dataflow jobs list \
+#             --region="us-east4" \
+#             --project=sw-dev-prj-itp-secrets \
+#             --filter="name:oden-gcs-parquet-${{ github.run_id }}" \
+#             --format="table(id, name, currentState, startTime)"
