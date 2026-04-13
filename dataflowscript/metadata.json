@@ -3,12 +3,12 @@
         "name": "Oden PubSub to GCS Parquet",
         "parameters": [
             {
-                "helpText": "Full path: projects/sw-dev-prj-itp-secrets/subscriptions/proficy-historian-topic",
+                "helpText": "Full path: projects/sw-dev-prj-sandbox/topics/proficy-historian-topic",
                 "label": "Pub/Sub Subscription",
                 "name": "input_subscription"
             },
             {
-                "helpText": "e.g. gs://python-code-sw-rds-python-bucket/data/oden/bronze",
+                "helpText": "e.g. gs://sw-rds-dataflow-gcs-itp/data/oden/bronze",
                 "label": "GCS Output Path",
                 "name": "output_path"
             },
