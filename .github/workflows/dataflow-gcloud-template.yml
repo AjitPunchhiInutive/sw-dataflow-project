@@ -37,10 +37,26 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
         with:
           version: 'latest'
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Verify Docker Installation
+        run: |
+          docker --version
+          docker buildx version
 
       - name: Build Dataflow Flex Template
         run: |
           echo "Building Dataflow Flex Template and uploading to GCS...${{ github.run_id }}"
+          gcloud auth configure-docker us-east4-docker.pkg.dev --quiet
+          docker build \
+              --no-cache \
+              --tag "us-east4-docker.pkg.dev/sw-dev-prj-sandbox/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}" \
+              --file "./dataflowscript/Dockerfile" \
+              ./dataflowscript
+          docker push \
+              "us-east4-docker.pkg.dev/sw-dev-prj-sandbox/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}"        
           gcloud dataflow flex-template build \
             gs://sw-rds-dataflow-gcs-itp/templates/oden-gcs-parquet-${{ github.run_id }}.json \
             --image-gcr-path="us-east4-docker.pkg.dev/sw-dev-prj-sandbox/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}" \
@@ -58,9 +74,6 @@ jobs:
           echo "Verifying template was uploaded to GCS..."
           gsutil ls gs://sw-rds-dataflow-gcs-itp/templates/oden-gcs-parquet-${{ github.run_id }}.json
 
-  # ──────────────────────────────────────────
-  # Step 2: Plan — show what will be deployed
-  # ──────────────────────────────────────────
   plan-dataflow-template:
     name: Plan Dataflow Deployment
     needs: build-dataflow-template
@@ -114,7 +127,7 @@ jobs:
         run: |
           echo "Validating template is available in GCS before deploy..."
           gsutil stat gs://sw-rds-dataflow-gcs-itp/templates/oden-gcs-parquet-${{ github.run_id }}.json
-          echo "✅ Template found — ready for deployment"
+          echo " Template found — ready for deployment"
 
       - name: Preview Active Dataflow Jobs
         run: |
@@ -126,13 +139,9 @@ jobs:
             --project=sw-dev-prj-sandbox \
             --filter="currentState=JOB_STATE_RUNNING" \
             --format="table(id, name, currentState, startTime)"
-
-  # ──────────────────────────────────────────
-  # Step 3: Approval gate after plan review
-  # ──────────────────────────────────────────
   approval:
     name: Approval Gate
-    needs: plan-dataflow-template       # ← waits for plan, not build
+    needs: plan-dataflow-template
     runs-on: ubuntu-latest
 
     permissions:
@@ -150,9 +159,6 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo " Approval granted - proceeding to deploy"
 
-  # ──────────────────────────────────────────
-  # Step 4: Deploy after approval
-  # ──────────────────────────────────────────
   deploy-dataflow-template:
     name: Deploy Dataflow Flex Template
     needs: approval
