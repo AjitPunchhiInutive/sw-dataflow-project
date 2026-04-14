@@ -5,7 +5,7 @@
     {
       "name": "subscription",
       "label": "Pub/Sub Subscription",
-      "helpText": "projects/PROJECT_ID/subscriptions/SUBSCRIPTION_NAME",
+      "helpText": "Full subscription path: projects/PROJECT/subscriptions/NAME",
       "isOptional": false
     },
     {
@@ -17,13 +17,13 @@
     {
       "name": "bq_table_err",
       "label": "BigQuery Error Table",
-      "helpText": "PROJECT:DATASET.TABLE for failed records",
+      "helpText": "PROJECT:DATASET.TABLE for failed/error records",
       "isOptional": false
     },
     {
       "name": "gcs_output_path",
       "label": "GCS Output Path",
-      "helpText": "gs://BUCKET/path/",
+      "helpText": "gs://BUCKET/path/ for output files",
       "isOptional": false
     },
     {
