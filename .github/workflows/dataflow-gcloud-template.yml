@@ -178,21 +178,37 @@ jobs:
           version: 'latest'
 
       - name: Drain Dataflow Job
-        continue-on-error: true
         run: |
-              JOB_ID=$(gcloud dataflow jobs list \
-                --region=us-east4 \
-                --filter="name:sw-oden-pubsub-to-gcs AND state=Running" \
-                --format="value(JOB_ID)" \
-                | head -n 1)
+          JOB_ID=$(gcloud dataflow jobs list \
+            --project="sw-dev-prj-sandbox" \
+            --region="us-east4" \
+            --filter="name=sw-oden-pubsub-to-gcs AND state=Running" \
+            --format="value(id)" \
+            | head -n 1)
 
-                if [ -z "$JOB_ID" ]; then
-                  echo "⚠️  No running Dataflow job found with name 'sw-oden-pubsub-to-gcs'. Skipping drain."
-                  exit 0
+            if [ -z "$JOB_ID" ]; then
+               echo "⚠️  No running job found with name 'sw-oden-pubsub-to-gcs'. Skipping drain."
+                exit 0
+            `fi
+
+            echo "✅  Found running job: $JOB_ID — initiating drain..."
+            gcloud dataflow jobs drain "$JOB_ID" \
+              --project="sw-dev-prj-sandbox" \
+              --region="us-east4"
+
+            echo "⏳  Waiting for job to finish draining..."
+            while true; do
+               STATE=$(gcloud dataflow jobs describe "$JOB_ID" \
+                 --project="sw-dev-prj-sandbox" \
+                 --region="us-east4" \
+                 --format="value(currentState)")
+              echo "  Current state: $STATE"
+                if [[ "$STATE" == "JOB_STATE_DRAINED" || "$STATE" == "JOB_STATE_DONE" || "$STATE" == "JOB_STATE_CANCELLED" ]]; then
+                    echo "✅  Job drained successfully."
+                    break
                 fi
-
-                echo "  Draining Dataflow Job: $JOB_ID"
-                gcloud dataflow jobs drain "$JOB_ID" --region=us-east4
+                  sleep 30
+                done
 
       - name: Deploy Dataflow Flex Template
         run: |
