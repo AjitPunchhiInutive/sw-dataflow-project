@@ -212,18 +212,25 @@ jobs:
 
       - name: Deploy Dataflow Flex Template
         run: |
-          echo "Deploying Dataflow Flex Template from GCS...${{ github.run_id }}"
-          gcloud dataflow flex-template run "sw-oden-pubsub-to-gcs" \
-            --project="sw-dev-prj-sandbox" \
-            --region="us-east4" \
-            --template-file-gcs-location="gs://sw-rds-dataflow-gcs-itp/templates/oden-gcs-parquet-${{ github.run_id }}.json" \
-            --service-account-email="dataflow-runner@sw-dev-prj-sandbox.iam.gserviceaccount.com" \
-            --network="dataflow-network" \
-            --subnetwork="regions/us-east4/subnetworks/dataflow-subnet" \
-            --disable-public-ips \
-            --enable-streaming-engine \
-            --parameters input_subscription="projects/sw-dev-prj-sandbox/subscriptions/proficy-historian-topic" \
-            --parameters output_path="gs://sw-rds-dataflow-gcs-itp/data/oden/bronze"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  Deploying Dataflow Flex Template"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  Job Name          : sw-oden-pubsub-to-gcs"
+          echo "  Template          : gs://sw-rds-dataflow-gcs-itp/templates/oden-gcs-parquet-${{ github.run_id }}.json"
+          echo "  Region            : us-east4"
+          echo "  Project           : sw-dev-prj-sandbox"
+          echo "  Service Acct      : dataflow-runner@sw-dev-prj-sandbox.iam.gserviceaccount.com"
+          echo "  Network           : dataflow-network"
+          echo "  Subnetwork        : regions/us-east4/subnetworks/dataflow-subnet"
+          echo "  Public IPs        : Disabled"
+          echo "  Streaming Engine  : Enabled"
+          echo "  Input Subscription: projects/sw-dev-prj-sandbox/subscriptions/proficy-historian-topic"
+          echo "  BQ OK Table       : sw-dev-prj-sandbox:pubsub_gcs_dataset.historian_stream"
+          echo "  BQ Error Table    : sw-dev-prj-sandbox:pubsub_gcs_dataset.historian_stream_error"
+          echo "  GCS Output Path   : gs://sw-rds-dataflow-gcs-itp/output/"
+          echo "  Temp Location     : gs://sw-rds-dataflow-gcs-itp/tmp"
+          echo "  Staging Location  : gs://sw-rds-dataflow-gcs-itp/staging"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
       - name: Confirm Dataflow Job Launched
         run: |

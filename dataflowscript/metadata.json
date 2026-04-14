@@ -1,28 +1,42 @@
 {
-        "description": "Reads Oden OT messages from Pub/Sub, parses JSON, writes Parquet to GCS",
-        "name": "Oden PubSub to GCS Parquet",
-        "parameters": [
-            {
-                "helpText": "Full path: projects/sw-dev-prj-sandbox/topics/proficy-historian-topic",
-                "label": "Pub/Sub Subscription",
-                "name": "input_subscription"
-            },
-            {
-                "helpText": "e.g. gs://sw-rds-dataflow-gcs-itp/data/oden/bronze",
-                "label": "GCS Output Path",
-                "name": "output_path"
-            },
-            {
-                "helpText": "Default: 60",
-                "isOptional": true,
-                "label": "Window Size (seconds)",
-                "name": "window_size"
-            },
-            {
-                "helpText": "Default: 1",
-                "isOptional": true,
-                "label": "Number of Shards",
-                "name": "num_shards"
-            }
-        ]
+  "name": "oden-gcs-parquet",
+  "description": "Reads from Pub/Sub and writes Parquet files to GCS and BigQuery",
+  "parameters": [
+    {
+      "name": "subscription",
+      "label": "Pub/Sub Subscription",
+      "helpText": "projects/PROJECT_ID/subscriptions/SUBSCRIPTION_NAME",
+      "isOptional": false
+    },
+    {
+      "name": "bq_table_ok",
+      "label": "BigQuery OK Table",
+      "helpText": "PROJECT:DATASET.TABLE for valid records",
+      "isOptional": false
+    },
+    {
+      "name": "bq_table_err",
+      "label": "BigQuery Error Table",
+      "helpText": "PROJECT:DATASET.TABLE for failed records",
+      "isOptional": false
+    },
+    {
+      "name": "gcs_output_path",
+      "label": "GCS Output Path",
+      "helpText": "gs://BUCKET/path/",
+      "isOptional": false
+    },
+    {
+      "name": "temp_location",
+      "label": "Temp Location",
+      "helpText": "gs://BUCKET/tmp/",
+      "isOptional": true
+    },
+    {
+      "name": "staging_location",
+      "label": "Staging Location",
+      "helpText": "gs://BUCKET/staging/",
+      "isOptional": true
     }
+  ]
+}
