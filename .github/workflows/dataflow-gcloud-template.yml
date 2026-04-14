@@ -57,18 +57,24 @@ jobs:
               ./dataflowscript
           docker push \
               "us-east4-docker.pkg.dev/sw-dev-prj-sandbox/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}"        
+          # gcloud dataflow flex-template build \
+          #   gs://sw-rds-dataflow-gcs-itp/templates/oden-gcs-parquet-${{ github.run_id }}.json \
+          #   --image-gcr-path="us-east4-docker.pkg.dev/sw-dev-prj-sandbox/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}" \
+          #   --sdk-language=PYTHON \
+          #   --flex-template-base-image=PYTHON3 \
+          #   --py-path="." \
+          #   --env=FLEX_TEMPLATE_PYTHON_PY_FILE=./dataflowscript/oden_pubsub_to_gcs.py \
+          #   --env=FLEX_TEMPLATE_PYTHON_REQUIREMENTS_FILE=./dataflowscript/requirements.txt \
+          #   --metadata-file=./dataflowscript/metadata.json \
+          #   --project=sw-dev-prj-sandbox \
+          #   --verbosity=debug
           gcloud dataflow flex-template build \
-            gs://sw-rds-dataflow-gcs-itp/templates/oden-gcs-parquet-${{ github.run_id }}.json \
-            --image-gcr-path="us-east4-docker.pkg.dev/sw-dev-prj-sandbox/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}" \
-            --sdk-language=PYTHON \
-            --flex-template-base-image=PYTHON3 \
-            --py-path="." \
-            --env=FLEX_TEMPLATE_PYTHON_PY_FILE=./dataflowscript/oden_pubsub_to_gcs.py \
-            --env=FLEX_TEMPLATE_PYTHON_REQUIREMENTS_FILE=./dataflowscript/requirements.txt \
-            --metadata-file=./dataflowscript/metadata.json \
-            --project=sw-dev-prj-sandbox \
-            --verbosity=debug
-
+              gs://sw-rds-dataflow-gcs-itp/templates/oden-gcs-parquet-${{ github.run_id }}.json \
+              --image="us-east4-docker.pkg.dev/sw-dev-prj-sandbox/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}" \
+              --sdk-language=PYTHON \
+              --metadata-file=./dataflowscript/metadata.json \
+              --project=sw-dev-prj-sandbox \
+              --verbosity=debug  
       - name: Confirm Template Upload
         run: |
           echo "Verifying template was uploaded to GCS..."
