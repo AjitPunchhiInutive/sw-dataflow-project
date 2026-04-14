@@ -12,79 +12,11 @@ env:
   TF_DIR: ./dataflowscript
 
 jobs:
-  build-dataflow-template:
-    name: Build Dataflow Flex Template
-    runs-on: ubuntu-latest
 
-    permissions:
-      contents: read
-      id-token: write
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
-
-      - name: Setup GCloud CLI
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          version: 'latest'
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Verify Docker Installation
-        run: |
-          docker --version
-          docker buildx version
-
-      - name: Build Dataflow Flex Template
-        run: |
-          echo "Building Dataflow Flex Template and uploading to GCS...${{ github.run_id }}"
-          gcloud auth configure-docker us-east4-docker.pkg.dev --quiet
-          docker build \
-            --no-cache \
-            --tag "us-east4-docker.pkg.dev/sw-dev-prj-sandbox/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}" \
-            --file "./dataflowscript/Dockerfile" \
-            ./dataflowscript
-          docker push \
-            "us-east4-docker.pkg.dev/sw-dev-prj-sandbox/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}"        
-          # gcloud dataflow flex-template build \
-          #   gs://sw-rds-dataflow-gcs-itp/templates/oden-gcs-parquet-${{ github.run_id }}.json \
-          #   --image-gcr-path="us-east4-docker.pkg.dev/sw-dev-prj-sandbox/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}" \
-          #   --sdk-language=PYTHON \
-          #   --flex-template-base-image=PYTHON3 \
-          #   --py-path="." \
-          #   --env=FLEX_TEMPLATE_PYTHON_PY_FILE=./dataflowscript/oden_pubsub_to_gcs.py \
-          #   --env=FLEX_TEMPLATE_PYTHON_REQUIREMENTS_FILE=./dataflowscript/requirements.txt \
-          #   --metadata-file=./dataflowscript/metadata.json \
-          #   --project=sw-dev-prj-sandbox \
-          #   --verbosity=debug
-          gcloud dataflow flex-template build \
-            gs://sw-rds-dataflow-gcs-itp/templates/oden-gcs-parquet-${{ github.run_id }}.json \
-            --image="us-east4-docker.pkg.dev/sw-dev-prj-sandbox/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}" \
-            --sdk-language=PYTHON \
-            --metadata-file=./dataflowscript/metadata.json \
-            --project=sw-dev-prj-sandbox
-              
-      - name: Confirm Template Upload
-        run: |
-          echo "Verifying template was uploaded to GCS..."
-          gsutil ls gs://sw-rds-dataflow-gcs-itp/templates/oden-gcs-parquet-${{ github.run_id }}.json
-
+ 
   plan-dataflow-template:
-    name: Plan Dataflow Deployment
-    needs: build-dataflow-template
+    name: "Step 1 | Plan Dataflow Deployment"
     runs-on: ubuntu-latest
-
     permissions:
       contents: read
       id-token: write
@@ -98,9 +30,9 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          project_id:                 ${{ secrets.GCP_PROJECT_ID }}
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+          service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
 
       - name: Setup GCloud CLI
         uses: google-github-actions/setup-gcloud@v2
@@ -110,7 +42,7 @@ jobs:
       - name: Show Deployment Plan
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Deploying Dataflow Flex Template"
+          echo "  Dataflow Deployment Plan"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "  Job Name          : sw-oden-pubsub-to-gcs"
           echo "  Template          : gs://sw-rds-dataflow-gcs-itp/templates/oden-gcs-parquet-${{ github.run_id }}.json"
@@ -129,30 +61,21 @@ jobs:
           echo "  Staging Location  : gs://sw-rds-dataflow-gcs-itp/staging"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-      - name: Validate Template Exists in GCS
-        run: |
-          echo "Validating template is available in GCS before deploy..."
-          gsutil stat gs://sw-rds-dataflow-gcs-itp/templates/oden-gcs-parquet-${{ github.run_id }}.json
-          echo " Template found — ready for deployment"
-
       - name: Preview Active Dataflow Jobs
         run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Currently Running Dataflow Jobs"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Currently Running Dataflow Jobs:"
           gcloud dataflow jobs list \
             --region="us-east4" \
             --project=sw-dev-prj-sandbox \
             --filter="currentState=JOB_STATE_RUNNING" \
             --format="table(id, name, currentState, startTime)"
+
   approval:
-    name: Approval Gate
+    name: "Step 2 | Approval Gate"
     needs: plan-dataflow-template
     runs-on: ubuntu-latest
-
     permissions:
       contents: read
-
     environment:
       name: dataflow-approval
       url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -163,13 +86,12 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "  Review the plan above, then approve"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo " Approval granted - proceeding to deploy"
+          echo "  Approval granted - proceeding to build"
 
-  deploy-dataflow-template:
-    name: Deploy Dataflow Flex Template
+  build-dataflow-template:
+    name: "Step 3 | Build Dataflow Flex Template"
     needs: approval
     runs-on: ubuntu-latest
-
     permissions:
       contents: read
       id-token: write
@@ -183,42 +105,117 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          project_id:                 ${{ secrets.GCP_PROJECT_ID }}
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+          service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
 
       - name: Setup GCloud CLI
         uses: google-github-actions/setup-gcloud@v2
         with:
           version: 'latest'
 
-      - name: Drain Dataflow Job
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Verify Docker Installation
+        run: |
+          docker --version
+          docker buildx version
+
+      - name: Build and Push Docker Image
+        run: |
+          echo "Configuring Docker for Artifact Registry..."
+          gcloud auth configure-docker us-east4-docker.pkg.dev --quiet
+
+          echo "Building Docker image...${{ github.run_id }}"
+          docker build \
+            --no-cache \
+            --tag "us-east4-docker.pkg.dev/sw-dev-prj-sandbox/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}" \
+            --file "./dataflowscript/Dockerfile" \
+            ./dataflowscript
+
+          echo "Pushing image to Artifact Registry..."
+          docker push \
+            "us-east4-docker.pkg.dev/sw-dev-prj-sandbox/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}"
+          echo "Image pushed"
+
+      - name: Build Flex Template JSON
+        run: |
+          echo "Building Flex Template spec → GCS..."
+          gcloud dataflow flex-template build \
+            gs://sw-rds-dataflow-gcs-itp/templates/oden-gcs-parquet-${{ github.run_id }}.json \
+            --image="us-east4-docker.pkg.dev/sw-dev-prj-sandbox/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}" \
+            --sdk-language=PYTHON \
+            --metadata-file=./dataflowscript/metadata.json \
+            --project=sw-dev-prj-sandbox
+          echo "Flex Template uploaded to GCS"
+
+      - name: Confirm Template Upload
+        run: |
+          echo "Verifying template in GCS..."
+          gsutil ls gs://sw-rds-dataflow-gcs-itp/templates/oden-gcs-parquet-${{ github.run_id }}.json
+          echo "Template confirmed"
+
+  deploy-dataflow-template:
+    name: "Step 4 | Deploy Dataflow Flex Template"
+    needs: build-dataflow-template
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          project_id:                 ${{ secrets.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Setup GCloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          version: 'latest'
+
+      - name: Validate Template Exists in GCS
+        run: |
+          echo "Validating template is available in GCS before deploy..."
+          gsutil stat gs://sw-rds-dataflow-gcs-itp/templates/oden-gcs-parquet-${{ github.run_id }}.json
+          echo "Template found — ready for deployment"
+
+      - name: Drain Existing Dataflow Job
         run: |
           JOB_ID=$(gcloud dataflow jobs list \
             --project=sw-dev-prj-sandbox \
             --region=us-east4 \
             --filter="name=sw-oden-pubsub-to-gcs AND state=Running" \
-            --format=value\(id\) \
-            | head -n 1)
+            --format=value\(id\) | head -n 1)
 
           if [ -z "$JOB_ID" ]; then
-            echo "No running job found with name sw-oden-pubsub-to-gcs. Skipping drain."
+            echo "No running job found. Skipping drain."
             exit 0
           fi
 
-          echo "Found running job: $JOB_ID - initiating drain..."
+          echo "Draining job: $JOB_ID ..."
           gcloud dataflow jobs drain "$JOB_ID" \
             --project=sw-dev-prj-sandbox \
             --region=us-east4
 
-          echo "Waiting for job to finish draining..."
+          echo "Waiting for drain to complete..."
           while true; do
             STATE=$(gcloud dataflow jobs describe "$JOB_ID" \
               --project=sw-dev-prj-sandbox \
               --region=us-east4 \
               --format=value\(currentState\))
-            echo "Current state: $STATE"
-            if [ "$STATE" = "JOB_STATE_DRAINED" ] || [ "$STATE" = "JOB_STATE_DONE" ] || [ "$STATE" = "JOB_STATE_CANCELLED" ]; then
+            echo "  Current state: $STATE"
+            if [ "$STATE" = "JOB_STATE_DRAINED" ] || \
+               [ "$STATE" = "JOB_STATE_DONE" ]    || \
+               [ "$STATE" = "JOB_STATE_CANCELLED" ]; then
               echo "Job drained successfully."
               break
             fi
@@ -227,7 +224,7 @@ jobs:
 
       - name: Deploy Dataflow Flex Template
         run: |
-          echo "Deploying Dataflow Flex Template from GCS...${{ github.run_id }}"
+          echo "Deploying Dataflow Flex Template...${{ github.run_id }}"
           gcloud dataflow flex-template run "sw-oden-pubsub-to-gcs" \
             --project="sw-dev-prj-sandbox" \
             --region="us-east4" \
@@ -246,9 +243,14 @@ jobs:
 
       - name: Confirm Dataflow Job Launched
         run: |
-          echo "Verifying Dataflow job was launched..."
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo " Docker image pushed to Artifact Registry"
+          echo " Flex Template uploaded to GCS"
+          echo " Dataflow job deployed"
+          echo " https://console.cloud.google.com/dataflow/jobs?project=sw-dev-prj-sandbox"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           gcloud dataflow jobs list \
             --region="us-east4" \
             --project=sw-dev-prj-sandbox \
-            --filter="name:oden-gcs-parquet-${{ github.run_id }}" \
+            --filter="name:sw-oden-pubsub-to-gcs" \
             --format="table(id, name, currentState, startTime)"
