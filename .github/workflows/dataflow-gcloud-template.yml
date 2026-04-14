@@ -51,12 +51,12 @@ jobs:
           echo "Building Dataflow Flex Template and uploading to GCS...${{ github.run_id }}"
           gcloud auth configure-docker us-east4-docker.pkg.dev --quiet
           docker build \
-              --no-cache \
-              --tag "us-east4-docker.pkg.dev/sw-dev-prj-sandbox/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}" \
-              --file "./dataflowscript/Dockerfile" \
-              ./dataflowscript
+            --no-cache \
+            --tag "us-east4-docker.pkg.dev/sw-dev-prj-sandbox/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}" \
+            --file "./dataflowscript/Dockerfile" \
+            ./dataflowscript
           docker push \
-              "us-east4-docker.pkg.dev/sw-dev-prj-sandbox/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}"        
+            "us-east4-docker.pkg.dev/sw-dev-prj-sandbox/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}"        
           # gcloud dataflow flex-template build \
           #   gs://sw-rds-dataflow-gcs-itp/templates/oden-gcs-parquet-${{ github.run_id }}.json \
           #   --image-gcr-path="us-east4-docker.pkg.dev/sw-dev-prj-sandbox/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}" \
@@ -69,12 +69,12 @@ jobs:
           #   --project=sw-dev-prj-sandbox \
           #   --verbosity=debug
           gcloud dataflow flex-template build \
-              gs://sw-rds-dataflow-gcs-itp/templates/oden-gcs-parquet-${{ github.run_id }}.json \
-              --image="us-east4-docker.pkg.dev/sw-dev-prj-sandbox/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}" \
-              --sdk-language=PYTHON \
-              --metadata-file=./dataflowscript/metadata.json \
-              --project=sw-dev-prj-sandbox \
-              --verbosity=debug  
+            gs://sw-rds-dataflow-gcs-itp/templates/oden-gcs-parquet-${{ github.run_id }}.json \
+            --image="us-east4-docker.pkg.dev/sw-dev-prj-sandbox/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}" \
+            --sdk-language=PYTHON \
+            --metadata-file=./dataflowscript/metadata.json \
+            --project=sw-dev-prj-sandbox
+              
       - name: Confirm Template Upload
         run: |
           echo "Verifying template was uploaded to GCS..."
