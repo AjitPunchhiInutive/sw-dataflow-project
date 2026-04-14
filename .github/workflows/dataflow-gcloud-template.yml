@@ -225,13 +225,12 @@ jobs:
             --subnetwork="regions/us-east4/subnetworks/dataflow-subnet" \
             --disable-public-ips \
             --enable-streaming-engine \
-            --parameters input_subscription="projects/sw-dev-prj-sandbox/subscriptions/proficy-historian-topic" \
-            --parameters output_path="gs://sw-rds-dataflow-gcs-itp/data/oden/bronze"
-            --parameters=bq_table_ok=sw-dev-prj-sandbox:pubsub_gcs_dataset.historian_stream \
-            --parameters=bq_table_err=sw-dev-prj-sandbox:pubsub_gcs_dataset.historian_stream_error \
-            --parameters=gcs_output_path=gs://sw-rds-dataflow-gcs-itp/output/ \
-            --parameters=temp_location=gs://sw-rds-dataflow-gcs-itp/tmp \
-            --parameters=staging_location=gs://sw-rds-dataflow-gcs-itp/staging
+            --parameters=subscription="projects/sw-dev-prj-sandbox/subscriptions/proficy-historian-topic" \
+            --parameters=bq_table_ok="sw-dev-prj-sandbox:pubsub_gcs_dataset.historian_stream" \
+            --parameters=bq_table_err="sw-dev-prj-sandbox:pubsub_gcs_dataset.historian_stream_error" \
+            --parameters=gcs_output_path="gs://sw-rds-dataflow-gcs-itp/output/" \
+            --parameters=temp_location="gs://sw-rds-dataflow-gcs-itp/tmp" \
+            --parameters=staging_location="gs://sw-rds-dataflow-gcs-itp/staging"
 
       - name: Confirm Dataflow Job Launched
         run: |
