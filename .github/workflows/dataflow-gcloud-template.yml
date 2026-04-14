@@ -180,35 +180,35 @@ jobs:
       - name: Drain Dataflow Job
         run: |
           JOB_ID=$(gcloud dataflow jobs list \
-            --project="sw-dev-prj-sandbox" \
-            --region="us-east4" \
+            --project=sw-dev-prj-sandbox \
+            --region=us-east4 \
             --filter="name=sw-oden-pubsub-to-gcs AND state=Running" \
-            --format="value(id)" \
+            --format=value\(id\) \
             | head -n 1)
 
-            if [ -z "$JOB_ID" ]; then
-               echo "⚠️  No running job found with name 'sw-oden-pubsub-to-gcs'. Skipping drain."
-                exit 0
-            `fi
+          if [ -z "$JOB_ID" ]; then
+            echo "No running job found with name sw-oden-pubsub-to-gcs. Skipping drain."
+            exit 0
+          fi
 
-            echo "✅  Found running job: $JOB_ID — initiating drain..."
-            gcloud dataflow jobs drain "$JOB_ID" \
-              --project="sw-dev-prj-sandbox" \
-              --region="us-east4"
+          echo "Found running job: $JOB_ID - initiating drain..."
+          gcloud dataflow jobs drain "$JOB_ID" \
+            --project=sw-dev-prj-sandbox \
+            --region=us-east4
 
-            echo "⏳  Waiting for job to finish draining..."
-            while true; do
-               STATE=$(gcloud dataflow jobs describe "$JOB_ID" \
-                 --project="sw-dev-prj-sandbox" \
-                 --region="us-east4" \
-                 --format="value(currentState)")
-              echo "  Current state: $STATE"
-                if [[ "$STATE" == "JOB_STATE_DRAINED" || "$STATE" == "JOB_STATE_DONE" || "$STATE" == "JOB_STATE_CANCELLED" ]]; then
-                    echo "✅  Job drained successfully."
-                    break
-                fi
-                  sleep 30
-                done
+          echo "Waiting for job to finish draining..."
+          while true; do
+            STATE=$(gcloud dataflow jobs describe "$JOB_ID" \
+              --project=sw-dev-prj-sandbox \
+              --region=us-east4 \
+              --format=value\(currentState\))
+            echo "Current state: $STATE"
+            if [ "$STATE" = "JOB_STATE_DRAINED" ] || [ "$STATE" = "JOB_STATE_DONE" ] || [ "$STATE" = "JOB_STATE_CANCELLED" ]; then
+              echo "Job drained successfully."
+              break
+            fi
+            sleep 30
+          done
 
       - name: Deploy Dataflow Flex Template
         run: |
