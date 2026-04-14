@@ -27,7 +27,7 @@ module "bigquery-dataset" {
   location      = "us-east4"
 
   options = {
-    default_table_expiration_ms     = 3600000
+    default_table_expiration_ms     = null
     default_partition_expiration_ms = null
     delete_contents_on_destroy      = false
   }
@@ -35,7 +35,7 @@ module "bigquery-dataset" {
   tables = {
     historian_stream = {
       friendly_name       = "Historian Stream"
-      deletion_protection = false
+      deletion_protection = true
       schema = jsonencode([
         { name = "messageid",      type = "INT64",     mode = "NULLABLE" },
         { name = "status",         type = "INT64",     mode = "NULLABLE" },
@@ -52,7 +52,7 @@ module "bigquery-dataset" {
 
     historian_stream_error = {
       friendly_name       = "Historian Stream Error"
-      deletion_protection = false
+      deletion_protection = true
       schema = jsonencode([
         { name = "publish_time",   type = "TIMESTAMP", mode = "NULLABLE" },
         { name = "ingestion_time", type = "TIMESTAMP", mode = "NULLABLE" },
@@ -62,7 +62,7 @@ module "bigquery-dataset" {
     }
     historian_stream_demo = {
       friendly_name       = "Historian Stream demo"
-      deletion_protection = false
+      deletion_protection = true
       schema = jsonencode([
         { name = "publish_time",   type = "TIMESTAMP", mode = "NULLABLE" },
         { name = "ingestion_time", type = "TIMESTAMP", mode = "NULLABLE" },
