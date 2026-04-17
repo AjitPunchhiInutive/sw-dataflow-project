@@ -17,7 +17,6 @@ resource "google_storage_bucket_object" "files" {
   content_type = "application/x-directory"
 }
 
-# ── Dataset only (no tables inside the module) ──────────────────────────────
 module "bigquery-dataset" {
   source = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//bigquery-dataset?ref=main"
 
@@ -33,81 +32,45 @@ module "bigquery-dataset" {
     delete_contents_on_destroy      = false
   }
 
-  tables = {}   # ← tables managed separately below to prevent recreation
-}
+  tables = {
+    historian_stream = {
+      friendly_name       = "Historian Stream"
+      deletion_protection = true
+      schema = jsonencode([
+        { name = "messageid",      type = "INT64",     mode = "NULLABLE" },
+        { name = "status",         type = "INT64",     mode = "NULLABLE" },
+        { name = "tagname",        type = "STRING",    mode = "NULLABLE" },
+        { name = "epochtime",      type = "TIMESTAMP", mode = "NULLABLE" },
+        { name = "tagvalue",       type = "STRING",    mode = "NULLABLE" },
+        { name = "quality",        type = "INT64",     mode = "NULLABLE" },
+        { name = "sq",             type = "STRING",    mode = "NULLABLE" },
+        { name = "publish_time",   type = "TIMESTAMP", mode = "NULLABLE" },
+        { name = "ingestion_time", type = "TIMESTAMP", mode = "NULLABLE" },
+        { name = "rowhash",        type = "STRING",    mode = "NULLABLE" }
+      ])
+    }
 
-# ── Tables managed directly with lifecycle protection ────────────────────────
-
-resource "google_bigquery_table" "historian_stream" {
-  project             = var.log_project_id
-  dataset_id          = module.bigquery-dataset.dataset_id
-  table_id            = "historian_stream"
-  friendly_name       = "Historian Stream"
-  deletion_protection = true
-
-  schema = jsonencode([
-    { name = "messageid",      type = "INT64",     mode = "NULLABLE" },
-    { name = "status",         type = "INT64",     mode = "NULLABLE" },
-    { name = "tagname",        type = "STRING",    mode = "NULLABLE" },
-    { name = "epochtime",      type = "TIMESTAMP", mode = "NULLABLE" },
-    { name = "tagvalue",       type = "STRING",    mode = "NULLABLE" },
-    { name = "quality",        type = "INT64",     mode = "NULLABLE" },
-    { name = "sq",             type = "STRING",    mode = "NULLABLE" },
-    { name = "publish_time",   type = "TIMESTAMP", mode = "NULLABLE" },
-    { name = "ingestion_time", type = "TIMESTAMP", mode = "NULLABLE" },
-    { name = "rowhash",        type = "STRING",    mode = "NULLABLE" }
-  ])
-
-  lifecycle {
-    prevent_destroy = true          # ← Terraform will hard-error if destroy attempted
-    ignore_changes  = [schema]      # ← schema drift won't trigger recreation
+    historian_stream_error = {
+      friendly_name       = "Historian Stream Error"
+      deletion_protection = true
+      schema = jsonencode([
+        { name = "publish_time",   type = "TIMESTAMP", mode = "NULLABLE" },
+        { name = "ingestion_time", type = "TIMESTAMP", mode = "NULLABLE" },
+        { name = "raw_payload",    type = "STRING",    mode = "NULLABLE" },
+        { name = "error_message",  type = "STRING",    mode = "NULLABLE" }
+      ])
+    }
+    historian_stream_demo = {
+      friendly_name       = "Historian Stream demo"
+      deletion_protection = true
+      schema = jsonencode([
+        { name = "publish_time",   type = "TIMESTAMP", mode = "NULLABLE" },
+        { name = "ingestion_time", type = "TIMESTAMP", mode = "NULLABLE" },
+        { name = "raw_payload",    type = "STRING",    mode = "NULLABLE" },
+        { name = "error_message",  type = "STRING",    mode = "NULLABLE" }
+      ])
+    }
   }
-
-  depends_on = [module.bigquery-dataset]
-}
-
-resource "google_bigquery_table" "historian_stream_error" {
-  project             = var.log_project_id
-  dataset_id          = module.bigquery-dataset.dataset_id
-  table_id            = "historian_stream_error"
-  friendly_name       = "Historian Stream Error"
-  deletion_protection = true
-
-  schema = jsonencode([
-    { name = "publish_time",   type = "TIMESTAMP", mode = "NULLABLE" },
-    { name = "ingestion_time", type = "TIMESTAMP", mode = "NULLABLE" },
-    { name = "raw_payload",    type = "STRING",    mode = "NULLABLE" },
-    { name = "error_message",  type = "STRING",    mode = "NULLABLE" }
-  ])
-
-  lifecycle {
-    prevent_destroy = true
-    ignore_changes  = [schema]
-  }
-
-  depends_on = [module.bigquery-dataset]
-}
-
-resource "google_bigquery_table" "historian_stream_demo" {
-  project             = var.log_project_id
-  dataset_id          = module.bigquery-dataset.dataset_id
-  table_id            = "historian_stream_demo"
-  friendly_name       = "Historian Stream Demo"
-  deletion_protection = true
-
-  schema = jsonencode([
-    { name = "publish_time",   type = "TIMESTAMP", mode = "NULLABLE" },
-    { name = "ingestion_time", type = "TIMESTAMP", mode = "NULLABLE" },
-    { name = "raw_payload",    type = "STRING",    mode = "NULLABLE" },
-    { name = "error_message",  type = "STRING",    mode = "NULLABLE" }
-  ])
-
-  lifecycle {
-    prevent_destroy = true
-    ignore_changes  = [schema]
-  }
-
-  depends_on = [module.bigquery-dataset]
 }
 
 module "pubsub" {

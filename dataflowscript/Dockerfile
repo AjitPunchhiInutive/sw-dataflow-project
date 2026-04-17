@@ -1,4 +1,4 @@
-FROM gcr.io/dataflow-templates-base/python311-template-launcher-base:latest
+FROM gcr.io/dataflow-templates-base/python311-template-launcher-base:20260122-rc00
 
 # ── Install Java ──────────────────────────────────────────────────────────────
 RUN apt-get update -qq && \
