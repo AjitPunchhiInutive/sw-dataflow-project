@@ -9,7 +9,8 @@ on:
   workflow_dispatch:
 
 env:
-  TF_DIR: ./dataflowscript
+  TF_DIR:      ./dataflowscript
+  CONFIG_FILE: ./dataflowscript/config.json   # ← single source of truth
 
 jobs:
 
@@ -27,10 +28,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      # ── Parse DATAFLOW_CONFIG JSON → environment variables ────────────────
-      - name: Load Dataflow Config
+      # ── Load config.json → env vars (reused across all jobs) ─────────────
+      - name: Load Config
         run: |
-          CONFIG='${{ vars.DATAFLOW_CONFIG }}'
+          CONFIG=$(cat ${{ env.CONFIG_FILE }})
           echo "PROJECT_ID=$(echo $CONFIG      | jq -r '.project_id')"      >> $GITHUB_ENV
           echo "REGION=$(echo $CONFIG          | jq -r '.region')"          >> $GITHUB_ENV
           echo "JOB_NAME=$(echo $CONFIG        | jq -r '.job_name')"        >> $GITHUB_ENV
@@ -116,9 +117,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Load Dataflow Config
+      - name: Load Config
         run: |
-          CONFIG='${{ vars.DATAFLOW_CONFIG }}'
+          CONFIG=$(cat ${{ env.CONFIG_FILE }})
           echo "PROJECT_ID=$(echo $CONFIG      | jq -r '.project_id')"      >> $GITHUB_ENV
           echo "REGION=$(echo $CONFIG          | jq -r '.region')"          >> $GITHUB_ENV
           echo "TEMPLATE_BUCKET=$(echo $CONFIG | jq -r '.template_bucket')" >> $GITHUB_ENV
@@ -145,25 +146,26 @@ jobs:
 
       - name: Build and Push Docker Image
         run: |
+          IMAGE="us-east4-docker.pkg.dev/${{ env.PROJECT_ID }}/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}"
+
           echo "Configuring Docker for Artifact Registry..."
           gcloud auth configure-docker us-east4-docker.pkg.dev --quiet
 
-          echo "Building Docker image...${{ github.run_id }}"
+          echo "Building Docker image: $IMAGE"
           docker build \
             --no-cache \
-            --tag "us-east4-docker.pkg.dev/${{ env.PROJECT_ID }}/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}" \
+            --tag "$IMAGE" \
             --file "./dataflowscript/Dockerfile" \
             ./dataflowscript
 
-          echo "Pushing image to Artifact Registry..."
-          docker push \
-            "us-east4-docker.pkg.dev/${{ env.PROJECT_ID }}/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}"
-          echo "✅ Image pushed"
+          echo "Pushing image..."
+          docker push "$IMAGE"
+          echo "✅ Image pushed: $IMAGE"
 
       - name: Build Flex Template JSON
         run: |
-          TEMPLATE="${{ env.TEMPLATE_BUCKET }}/oden-gcs-parquet-${{ github.run_id }}.json"
           IMAGE="us-east4-docker.pkg.dev/${{ env.PROJECT_ID }}/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}"
+          TEMPLATE="${{ env.TEMPLATE_BUCKET }}/oden-gcs-parquet-${{ github.run_id }}.json"
 
           echo "Building Flex Template → $TEMPLATE"
           gcloud dataflow flex-template build "$TEMPLATE" \
@@ -176,9 +178,8 @@ jobs:
       - name: Confirm Template Upload
         run: |
           TEMPLATE="${{ env.TEMPLATE_BUCKET }}/oden-gcs-parquet-${{ github.run_id }}.json"
-          echo "Verifying template in GCS..."
           gsutil ls "$TEMPLATE"
-          echo "✅ Template confirmed"
+          echo "✅ Template confirmed in GCS"
 
   # ── Job 4: Deploy ─────────────────────────────────────────────────────────
   deploy-dataflow-template:
@@ -195,9 +196,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Load Dataflow Config
+      - name: Load Config
         run: |
-          CONFIG='${{ vars.DATAFLOW_CONFIG }}'
+          CONFIG=$(cat ${{ env.CONFIG_FILE }})
           echo "PROJECT_ID=$(echo $CONFIG      | jq -r '.project_id')"      >> $GITHUB_ENV
           echo "REGION=$(echo $CONFIG          | jq -r '.region')"          >> $GITHUB_ENV
           echo "JOB_NAME=$(echo $CONFIG        | jq -r '.job_name')"        >> $GITHUB_ENV
@@ -224,7 +225,6 @@ jobs:
       - name: Validate Template Exists in GCS
         run: |
           TEMPLATE="${{ env.TEMPLATE_BUCKET }}/oden-gcs-parquet-${{ github.run_id }}.json"
-          echo "Validating template: $TEMPLATE"
           gsutil stat "$TEMPLATE"
           echo "✅ Template found — ready for deployment"
 
@@ -266,7 +266,6 @@ jobs:
         run: |
           TEMPLATE="${{ env.TEMPLATE_BUCKET }}/oden-gcs-parquet-${{ github.run_id }}.json"
 
-          echo "Deploying: $TEMPLATE"
           gcloud dataflow flex-template run "${{ env.JOB_NAME }}" \
             --project="${{ env.PROJECT_ID }}" \
             --region="${{ env.REGION }}" \

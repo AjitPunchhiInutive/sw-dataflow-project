@@ -1,0 +1,12 @@
+{
+  "project_id":      "sw-dev-prj-sandbox",
+  "region":          "us-east4",
+  "job_name":        "sw-oden-pubsub-to-gcs",
+  "network":         "dataflow-network",
+  "subnetwork":      "regions/us-east4/subnetworks/dataflow-subnet",
+  "service_account": "dataflow-runner@sw-dev-prj-sandbox.iam.gserviceaccount.com",
+  "template_bucket": "gs://sw-rds-dataflow-gcs-itp/templates",
+  "subscription":    "projects/sw-dev-prj-sandbox/subscriptions/proficy-historian-topic",
+  "bq_table_ok":     "sw-dev-prj-sandbox:pubsub_gcs_dataset.historian_stream",
+  "bq_table_err":    "sw-dev-prj-sandbox:pubsub_gcs_dataset.historian_stream_error"
+}
