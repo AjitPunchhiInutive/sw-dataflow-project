@@ -1,5 +1,5 @@
 {
-  "project_id":      "sw-dev-prj-sandbox",
+    
   "region":          "us-east4",
   "job_name":        "sw-oden-pubsub-to-gcs",
   "network":         "dataflow-network",
@@ -10,3 +10,4 @@
   "bq_table_ok":     "sw-dev-prj-sandbox:pubsub_gcs_dataset.historian_stream",
   "bq_table_err":    "sw-dev-prj-sandbox:pubsub_gcs_dataset.historian_stream_error"
 }
+
