@@ -83,28 +83,38 @@ resource "google_bigquery_routine" "sp_clone_all_tables" {
   depends_on = [module.bigquery-dataset-copyjob]
 }
 
-# ── Routine 2: Runner Procedure ───────────────────────────────────────────────
-# ✅ Also lives in SOURCE project — calls the core procedure with fixed defaults
-resource "google_bigquery_routine" "sp_clone_all_tables_runner" {
-  project      = "sw-dev-prj-sandbox"       # ✅ Source project
-  dataset_id   = "pubsub_gcs_dataflow"      # ✅ Source dataset
-  routine_id   = "sp_clone_all_tables_runner"
-  routine_type = "PROCEDURE"
-  language     = "SQL"
+# ── Invoke the stored procedure via a BigQuery Query Job ─────────────────────
+resource "google_bigquery_job" "invoke_sp_clone_all_tables" {
+  project  = "sw-dev-prj-sandbox"
+  job_id   = "invoke_sp_clone_all_tables_${formatdate("YYYYMMDDhhmmss", timestamp())}"
+  location = "us-east4"
 
-  definition_body = <<-EOT
-    DECLARE src_project  STRING DEFAULT 'sw-dev-prj-sandbox';
-    DECLARE src_dataset  STRING DEFAULT 'pubsub_gcs_dataflow';
-    DECLARE dest_project STRING DEFAULT 'sw-dev-prj-itp-secrets';
-    DECLARE dest_dataset STRING DEFAULT 'copyjob_streaming_dataset';
+  query {
+    query = <<-EOT
+      DECLARE src_project  STRING DEFAULT 'sw-dev-prj-sandbox';
+      DECLARE src_dataset  STRING DEFAULT 'pubsub_gcs_dataflow';
+      DECLARE dest_project STRING DEFAULT 'sw-dev-prj-itp-secrets';
+      DECLARE dest_dataset STRING DEFAULT 'copyjob_streaming_dataset';
 
-    CALL `sw-dev-prj-sandbox.pubsub_gcs_dataflow.sp_clone_all_tables`(
-      src_project,
-      src_dataset,
-      dest_project,
-      dest_dataset
-    );
-  EOT
+      CALL `sw-dev-prj-sandbox.pubsub_gcs_dataflow.sp_clone_all_tables`(
+        src_project,
+        src_dataset,
+        dest_project,
+        dest_dataset
+      );
+    EOT
 
+    use_legacy_sql   = false
+    create_disposition = ""   # Not a table-creating job
+    write_disposition  = ""   # Not a table-writing job
+  }
+
+  # ── Only run AFTER the procedure exists ──────────────────────────────────────
   depends_on = [google_bigquery_routine.sp_clone_all_tables]
+
+  lifecycle {
+    # ✅ Job ID includes timestamp so each apply creates a new invocation
+    # Replace triggers allow re-running on every apply if needed
+    replace_triggered_by = [google_bigquery_routine.sp_clone_all_tables]
+  }
 }
