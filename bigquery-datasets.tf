@@ -83,26 +83,18 @@ resource "google_bigquery_routine" "sp_clone_all_tables" {
   depends_on = [module.bigquery-dataset-copyjob]
 }
 
-resource "null_resource" "invoke_sp_clone_all_tables" {
+# ── Invoke the stored procedure via a BigQuery Query Job ─────────────────────
+resource "google_bigquery_job" "invoke_sp_clone_all_tables" {
+  project  = "sw-dev-prj-sandbox"
+  job_id   = "invoke-sp-clone-all-tables-v1"   # ✅ Fix 3: static ID, no timestamp drift
+  location = "us-east4"
 
-  triggers = {
-    routine_id = google_bigquery_routine.sp_clone_all_tables.id  # re-run if procedure changes
-    always_run = timestamp()                                      # ← remove for one-time run only
-  }
+  query {
+    # ✅ Fix 1: Single CALL statement — pass literal values directly, no DECLARE needed
+    query = "CALL `sw-dev-prj-sandbox.pubsub_gcs_dataflow.sp_clone_all_tables`('sw-dev-prj-sandbox', 'pubsub_gcs_dataflow', 'sw-dev-prj-itp-secrets', 'copyjob_streaming_dataset');"
 
-  provisioner "local-exec" {
-    command = <<-BASH
-      bq query \
-        --project_id=sw-dev-prj-sandbox \
-        --location=us-east4 \
-        --nouse_legacy_sql \
-        "CALL \`sw-dev-prj-sandbox.pubsub_gcs_dataflow.sp_clone_all_tables\`( \
-          'sw-dev-prj-sandbox', \
-          'pubsub_gcs_dataflow', \
-          'sw-dev-prj-itp-secrets', \
-          'copyjob_streaming_dataset' \
-        );"
-    BASH
+    use_legacy_sql = false
+    # ✅ Fix 2: Removed create_disposition and write_disposition — invalid for procedure calls
   }
 
   depends_on = [google_bigquery_routine.sp_clone_all_tables]
