@@ -113,7 +113,7 @@ resource "google_bigquery_data_transfer_config" "nightly_dev_reset" {
   data_source_id         = "scheduled_query"          # BigQuery native scheduled query
   schedule               = "every 24 hours"           # runs daily at 03:00 UTC
   schedule_options {
-    start_time = "2024-01-01T03:00:00Z"               # first run at 03:00 UTC
+     start_time = timeadd(timestamp(), "24h")               # first run at 03:00 UTC
   }
 
   params = {
