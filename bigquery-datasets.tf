@@ -86,16 +86,35 @@ resource "google_bigquery_routine" "sp_clone_all_tables" {
 # ── Invoke the stored procedure via a BigQuery Query Job ─────────────────────
 resource "google_bigquery_job" "invoke_sp_clone_all_tables" {
   project  = "sw-dev-prj-sandbox"
-  job_id   = "invoke-sp-clone-all-tables-v1"   # ✅ Fix 3: static ID, no timestamp drift
+  job_id   = "invoke_sp_clone_all_tables_2"
   location = "us-east4"
 
   query {
-    # ✅ Fix 1: Single CALL statement — pass literal values directly, no DECLARE needed
-    query = "CALL `sw-dev-prj-sandbox.pubsub_gcs_dataflow.sp_clone_all_tables`('sw-dev-prj-sandbox', 'pubsub_gcs_dataflow', 'sw-dev-prj-itp-secrets', 'copyjob_streaming_dataset');"
+    query = <<-EOT
+      DECLARE src_project  STRING DEFAULT 'sw-dev-prj-sandbox';
+      DECLARE src_dataset  STRING DEFAULT 'pubsub_gcs_dataflow';
+      DECLARE dest_project STRING DEFAULT 'sw-dev-prj-itp-secrets';
+      DECLARE dest_dataset STRING DEFAULT 'copyjob_streaming_dataset';
 
-    use_legacy_sql = false
-    # ✅ Fix 2: Removed create_disposition and write_disposition — invalid for procedure calls
+      CALL `sw-dev-prj-sandbox.pubsub_gcs_dataflow.sp_clone_all_tables`(
+        src_project,
+        src_dataset,
+        dest_project,
+        dest_dataset
+      );
+    EOT
+
+    use_legacy_sql   = false
+    create_disposition = ""   # Not a table-creating job
+    write_disposition  = ""   # Not a table-writing job
   }
 
+  # ── Only run AFTER the procedure exists ──────────────────────────────────────
   depends_on = [google_bigquery_routine.sp_clone_all_tables]
+
+  lifecycle {
+    # ✅ Job ID includes timestamp so each apply creates a new invocation
+    # Replace triggers allow re-running on every apply if needed
+    replace_triggered_by = [google_bigquery_routine.sp_clone_all_tables]
+  }
 }
