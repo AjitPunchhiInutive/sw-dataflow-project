@@ -60,6 +60,16 @@ module "bigquery-dataset" {
         { name = "error_message",  type = "STRING",    mode = "NULLABLE" }
       ])
     }
+    historian_stream_backupjob = {
+      friendly_name       = "Historian Stream backupjob"
+      deletion_protection = true
+      schema = jsonencode([
+        { name = "publish_time",   type = "TIMESTAMP", mode = "NULLABLE" },
+        { name = "ingestion_time", type = "TIMESTAMP", mode = "NULLABLE" },
+        { name = "raw_payload",    type = "STRING",    mode = "NULLABLE" },
+        { name = "error_message",  type = "STRING",    mode = "NULLABLE" }
+      ])
+    }
     historian_stream_demo = {
       friendly_name       = "Historian Stream demo"
       deletion_protection = true
