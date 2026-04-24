@@ -1,4 +1,4 @@
-# ── BigQuery Dataset ──────────────────────────────────────────────────────────
+# ── BigQuery Dataset (Destination) ───────────────────────────────────────────
 module "bigquery-dataset-copyjob" {
   source = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//bigquery-dataset?ref=main"
 
@@ -15,47 +15,44 @@ module "bigquery-dataset-copyjob" {
   }
 }
 
-# ── BigQuery Routine (Stored Procedure) ───────────────────────────────────────
+# ── Routine 1: Core Procedure ─────────────────────────────────────────────────
+# ✅ Created in SOURCE project: sw-dev-prj-sandbox / pubsub_gcs_dataflow
+# ── This is where the procedure lives — NOT in the destination project ────────
 resource "google_bigquery_routine" "sp_clone_all_tables" {
-  project      = "sw-dev-prj-itp-secrets"
-  dataset_id   = module.bigquery-dataset-copyjob.dataset_id
+  project      = "sw-dev-prj-sandbox"       # ✅ Source project
+  dataset_id   = "pubsub_gcs_dataflow"      # ✅ Source dataset (procedure lives here)
   routine_id   = "sp_clone_all_tables"
   routine_type = "PROCEDURE"
   language     = "SQL"
 
-  # ── Input arguments ──────────────────────────────────────────────────────────
   arguments {
     name      = "src_project"
     mode      = "IN"
     data_type = jsonencode({ typeKind = "STRING" })
   }
-
   arguments {
     name      = "src_dataset"
     mode      = "IN"
     data_type = jsonencode({ typeKind = "STRING" })
   }
-
   arguments {
     name      = "dest_project"
     mode      = "IN"
     data_type = jsonencode({ typeKind = "STRING" })
   }
-
   arguments {
     name      = "dest_dataset"
     mode      = "IN"
     data_type = jsonencode({ typeKind = "STRING" })
   }
 
-  # ── Procedure body (BEGIN...END — no CREATE OR REPLACE header in body) ───────
   definition_body = <<-EOT
     DECLARE table_list ARRAY<STRING>;
     DECLARE i          INT64 DEFAULT 0;
     DECLARE table_name STRING;
     DECLARE query      STRING;
 
-    -- ✅ Fix 1: Build query with CONCAT to avoid 'BASE TABLE' nested quote issue
+    -- Build query separately to avoid nested single-quote conflict
     SET query = CONCAT(
       'SELECT ARRAY_AGG(table_name) ',
       'FROM `', src_project, '.region-us-east4.INFORMATION_SCHEMA.TABLES` ',
@@ -65,7 +62,7 @@ resource "google_bigquery_routine" "sp_clone_all_tables" {
 
     EXECUTE IMMEDIATE query INTO table_list;
 
-    -- ✅ Fix 2: Guard against NULL when source dataset has no tables
+    -- Guard: treat empty source dataset as empty array
     SET table_list = IFNULL(table_list, []);
 
     WHILE i < ARRAY_LENGTH(table_list) DO
@@ -84,4 +81,30 @@ resource "google_bigquery_routine" "sp_clone_all_tables" {
   EOT
 
   depends_on = [module.bigquery-dataset-copyjob]
+}
+
+# ── Routine 2: Runner Procedure ───────────────────────────────────────────────
+# ✅ Also lives in SOURCE project — calls the core procedure with fixed defaults
+resource "google_bigquery_routine" "sp_clone_all_tables_runner" {
+  project      = "sw-dev-prj-sandbox"       # ✅ Source project
+  dataset_id   = "pubsub_gcs_dataflow"      # ✅ Source dataset
+  routine_id   = "sp_clone_all_tables_runner"
+  routine_type = "PROCEDURE"
+  language     = "SQL"
+
+  definition_body = <<-EOT
+    DECLARE src_project  STRING DEFAULT 'sw-dev-prj-sandbox';
+    DECLARE src_dataset  STRING DEFAULT 'pubsub_gcs_dataflow';
+    DECLARE dest_project STRING DEFAULT 'sw-dev-prj-itp-secrets';
+    DECLARE dest_dataset STRING DEFAULT 'copyjob_streaming_dataset';
+
+    CALL `sw-dev-prj-sandbox.pubsub_gcs_dataflow.sp_clone_all_tables`(
+      src_project,
+      src_dataset,
+      dest_project,
+      dest_dataset
+    );
+  EOT
+
+  depends_on = [google_bigquery_routine.sp_clone_all_tables]
 }
