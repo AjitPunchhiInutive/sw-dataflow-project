@@ -72,7 +72,6 @@ resource "google_bigquery_routine" "sp_clone_all_tables" {
   depends_on = [module.bigquery-dataset-copyjob]
 }
 
-# ── Invoke the stored procedure via a BigQuery Query Job ─────────────────────
 resource "google_bigquery_job" "invoke_sp_clone_all_tables" {
   project  = "sw-dev-prj-sandbox"
   job_id   = "invoke_sp_clone_all_tables_3"
@@ -94,16 +93,47 @@ resource "google_bigquery_job" "invoke_sp_clone_all_tables" {
     EOT
 
     use_legacy_sql   = false
-    create_disposition = ""   # Not a table-creating job
-    write_disposition  = ""   # Not a table-writing job
+    create_disposition = ""
+    write_disposition  = ""
   }
-
-  # ── Only run AFTER the procedure exists ──────────────────────────────────────
   depends_on = [google_bigquery_routine.sp_clone_all_tables]
 
   lifecycle {
-    # ✅ Job ID includes timestamp so each apply creates a new invocation
-    # Replace triggers allow re-running on every apply if needed
     replace_triggered_by = [google_bigquery_routine.sp_clone_all_tables]
   }
+}
+
+# ── BigQuery Scheduled Query — Nightly Dev Reset ──────────────────────────────
+# Runs every day at 03:00 UTC
+# Calls sp_clone_all_tables to clone tables from dev → itp-secrets
+resource "google_bigquery_data_transfer_config" "nightly_dev_reset" {
+  project                = "sw-dev-prj-sandbox"
+  location               = "us-east4"
+  display_name           = "Nightly-Dev-Reset"
+  data_source_id         = "scheduled_query"          # BigQuery native scheduled query
+  schedule               = "every 24 hours"           # runs daily at 03:00 UTC
+  schedule_options {
+    start_time = "2024-01-01T03:00:00Z"               # first run at 03:00 UTC
+  }
+
+  params = {
+    query = <<-EOT
+      DECLARE src_project  STRING DEFAULT 'sw-dev-prj-sandbox';
+      DECLARE src_dataset  STRING DEFAULT 'pubsub_gcs_dataflow';
+      DECLARE dest_project STRING DEFAULT 'sw-dev-prj-itp-secrets';
+      DECLARE dest_dataset STRING DEFAULT 'copyjob_streaming_dataset';
+
+      CALL `sw-dev-prj-sandbox.pubsub_gcs_dataflow.sp_clone_all_tables`(
+        src_project,
+        src_dataset,
+        dest_project,
+        dest_dataset
+      );
+    EOT
+  }
+
+  # Service account that runs the scheduled query
+  service_account_name = "dataflow-runner@sw-dev-prj-sandbox.iam.gserviceaccount.com"
+
+  depends_on = [google_bigquery_routine.sp_clone_all_tables]
 }
