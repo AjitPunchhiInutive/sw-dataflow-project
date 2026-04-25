@@ -23,7 +23,7 @@ module "bigquery-dataset-demo" {
   }
 }
 
-resource "google_bigquery_routine" "sp_clone_all_tables" {
+resource "google_bigquery_routine" "sp_clone_all_tables_demo" {
   project      = local.src.project
   dataset_id   = local.src.dataset
   routine_id   = local.src.routine
@@ -87,7 +87,7 @@ resource "google_bigquery_routine" "sp_clone_all_tables" {
 }
 
 # ── 3. One-time Invocation Job ────────────────────────────────────────────────
-resource "google_bigquery_job" "invoke_sp_clone_all_tables" {
+resource "google_bigquery_job" "invoke_sp_clone_all_tables_demo" {
   project  = local.src.project
   job_id   = local.job.job_id
   location = local.src.location
@@ -97,11 +97,11 @@ resource "google_bigquery_job" "invoke_sp_clone_all_tables" {
     use_legacy_sql = local.job.use_legacy_sql
   }
 
-  depends_on = [google_bigquery_routine.sp_clone_all_tables]
+  depends_on = [google_bigquery_routine.sp_clone_all_tables_demo]
 }
 
 # ── 4. Scheduled Nightly Job ──────────────────────────────────────────────────
-resource "google_bigquery_data_transfer_config" "nightly_dev_reset" {
+resource "google_bigquery_data_transfer_config" "Nightly-Dev-Reset-demo" {
   project        = local.src.project
   location       = local.src.location
   display_name   = local.schedule.display_name
@@ -118,5 +118,5 @@ resource "google_bigquery_data_transfer_config" "nightly_dev_reset" {
 
   service_account_name = local.schedule.service_account
 
-  depends_on = [google_bigquery_routine.sp_clone_all_tables]
+  depends_on = [google_bigquery_routine.sp_clone_all_tables_demo]
 }
