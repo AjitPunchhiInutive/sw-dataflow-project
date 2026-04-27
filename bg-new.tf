@@ -1,13 +1,13 @@
 # ── Load YAML config ──────────────────────────────────────────────────────────
 locals {
-  copyjob_bq_datasets = {
+  copyjob_bq_configs = {
     for b in yamldecode(file("${path.module}/config/bigquery-datasets/dataflow-copy.yaml")) :
     b.name != null ? b.name : "default_key" => b
   }
 }
 module "copyjob_bq_datasets" {
   source   = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//bigquery-dataset?ref=main"
-  for_each = local.copyjob_bq_datasets
+  for_each = local.copyjob_bq_configs
 
   project_id    = each.value.destination_project_id
   id            = each.value.name
@@ -23,7 +23,7 @@ module "copyjob_bq_datasets" {
 }
 
 resource "google_bigquery_routine" "sp_clone_all_tables_sw" {
-  for_each = local.copyjob_bq_datasets
+  for_each = local.copyjob_bq_configs
 
   project      = each.value.source.project
   dataset_id   = each.value.source.dataset
@@ -82,7 +82,7 @@ resource "google_bigquery_routine" "sp_clone_all_tables_sw" {
 }
 
 resource "google_bigquery_job" "invoke_sp_clone_all_tables_sw" {
-  for_each = local.copyjob_bq_datasets
+  for_each = local.copyjob_bq_configs
 
   project  = each.value.source.project
   job_id   = each.value.job.job_id
@@ -92,7 +92,7 @@ resource "google_bigquery_job" "invoke_sp_clone_all_tables_sw" {
     query = <<-EOT
       DECLARE src_project  STRING DEFAULT '${each.value.source.project}';
       DECLARE src_dataset  STRING DEFAULT '${each.value.source.dataset}';
-      DECLARE dest_project STRING DEFAULT '${each.value.project_id}';
+      DECLARE dest_project STRING DEFAULT '${eeach.value.destination_project_id}';
       DECLARE dest_dataset STRING DEFAULT '${each.value.name}';
 
       CALL `${each.value.source.project}.${each.value.source.dataset}.${each.value.source.routine}`(
@@ -112,9 +112,8 @@ resource "google_bigquery_job" "invoke_sp_clone_all_tables_sw" {
 }
 
 # ── 4. Scheduled Nightly Job ──────────────────────────────────────────────────
-# ✅ Fix 2: each.value.* replaces local.src.* / local.schedule.*
 resource "google_bigquery_data_transfer_config" "nightly_dev_reset_demo" {
-  for_each = local.copyjob_bq_datasets
+  for_each = local.copyjob_bq_configs
 
   project        = each.value.source.project
   location       = each.value.source.location
@@ -127,7 +126,7 @@ resource "google_bigquery_data_transfer_config" "nightly_dev_reset_demo" {
   }
 
   params = {
-    query = "CALL `${each.value.source.project}.${each.value.source.dataset}.${each.value.source.routine}`('${each.value.source.project}', '${each.value.source.dataset}', '${each.value.project_id}', '${each.value.name}');"
+    query = "CALL `${each.value.source.project}.${each.value.source.dataset}.${each.value.source.routine}`('${each.value.source.project}', '${each.value.source.dataset}', '${each.value.destination_project_id}', '${each.value.name}');"
   }
 
   service_account_name = each.value.schedule.service_account

@@ -1,25 +1,39 @@
-- name:          "copyjob_streaming_dataset_sw"
-  destination_project_id:    "sw-dev-prj-itp-secrets"
+##############################################################################
+# BigQuery Copy Job Dataset Configuration
+# Purpose : Clones tables from source dataset → destination dataset
+#           via a scheduled stored procedure (sp_clone_all_tables_sw)
+# Schedule: Nightly at 03:00 UTC (every 24 hours)
+##############################################################################
+
+- name: "copyjob_streaming_dataset_sw"
+
+  # GCP project where the destination BigQuery dataset will be created
+  destination_project_id: "sw-dev-prj-itp-secrets"
   friendly_name: "SW copyjob Streaming Dataset"
-  description:   "SW copyjob Streaming Dataset - Main streaming tables"
-  location:      "us-east4"
-
+  description: "SW copyjob Streaming Dataset - Main streaming tables"
+  location: "us-east4"
   options:
-    default_table_expiration_ms:     null
+    default_table_expiration_ms: null
     default_partition_expiration_ms: null
-    delete_contents_on_destroy:      false
+    delete_contents_on_destroy: false
 
+  # ── Source Configuration ────────────────────────────────────────────────────
+  # Defines where tables are cloned FROM
   source:
-    project:  "sw-dev-prj-sandbox"
-    dataset:  "pubsub_gcs_dataflow"
-    routine:  "sp_clone_all_tables_sw"
+    project: "sw-dev-prj-sandbox"
+    dataset: "pubsub_gcs_dataflow"
+    routine: "sp_clone_all_tables_sw"
     location: "us-east4"
 
+  # ── BigQuery Job Configuration ───────────────────────────────────────────────
+  # One-time job used for manual / first-run execution of the stored procedure
   job:
-    job_id:         "invoke-sp-clone-all-tables-v6"
+    job_id: "invoke-sp-clone-all-tables-v6" # Unique job ID — increment version suffix (v1, v2 ...) when re-running manually
     use_legacy_sql: false
 
+  # ── Scheduled Query Configuration ───────────────────────────────────────────
+  # Automates nightly execution via BigQuery Data Transfer Service
   schedule:
-    display_name:    "Nightly-Dev-Reset-DEV"
-    schedule:        "every 24 hours"
+    display_name: "Nightly-Dev-Reset-DEV"
+    schedule: "every 24 hours"
     service_account: "dataflow-runner@sw-dev-prj-sandbox.iam.gserviceaccount.com"
