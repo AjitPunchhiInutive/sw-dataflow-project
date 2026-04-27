@@ -9,11 +9,11 @@ module "copyjob_bq_datasets" {
   source   = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//bigquery-dataset?ref=main"
   for_each = local.copyjob_bq_datasets
 
-  project_id    = each.value.project_id
-  id            = each.value.name
-  friendly_name = each.value.friendly_name
-  description   = each.value.description
-  location      = each.value.location
+  project_id    = each.value.destination_project_id
+  id            = each.value.destination_name
+  friendly_name = each.value.destination_friendly_name
+  description   = each.value.destination_description
+  location      = each.value.ldestination_ocation
 
   options = {
     default_table_expiration_ms     = each.value.options.default_table_expiration_ms
