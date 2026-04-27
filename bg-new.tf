@@ -56,31 +56,25 @@ resource "google_bigquery_routine" "sp_clone_all_tables_sw" {
     DECLARE table_list ARRAY<STRING>;
     DECLARE i          INT64 DEFAULT 0;
     DECLARE table_name STRING;
-    DECLARE query      STRING;
 
-    SET query = CONCAT(
-      'SELECT ARRAY_AGG(table_name) ',
-      'FROM `', src_project, '.region-us-east4.INFORMATION_SCHEMA.TABLES` ',
-      'WHERE table_schema = "', src_dataset, '" ',
-      'AND table_type = "BASE TABLE"'
-    );
-
-    EXECUTE IMMEDIATE query INTO table_list;
-
-    SET table_list = IFNULL(table_list, []);
+    EXECUTE IMMEDIATE FORMAT(
+      '''
+      SELECT ARRAY_AGG(table_name)
+      FROM `%s.%s.INFORMATION_SCHEMA.TABLES`
+      WHERE table_type = 'BASE TABLE'
+      ''',
+      src_project, src_dataset
+    )
+    INTO table_list;
 
     WHILE i < ARRAY_LENGTH(table_list) DO
-
       SET table_name = table_list[OFFSET(i)];
-
       EXECUTE IMMEDIATE FORMAT(
         'CREATE OR REPLACE TABLE `%s.%s.%s` CLONE `%s.%s.%s`',
         dest_project, dest_dataset, table_name,
         src_project,  src_dataset,  table_name
       );
-
       SET i = i + 1;
-
     END WHILE;
   EOT
 
