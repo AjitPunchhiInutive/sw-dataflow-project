@@ -89,8 +89,23 @@ resource "google_bigquery_job" "invoke_sp_clone_all_tables_sw" {
   location = each.value.source.location
 
   query {
-    query = "CALL `${each.value.source.project}.${each.value.source.dataset}.${each.value.source.routine}`('${each.value.source.project}', '${each.value.source.dataset}', '${each.value.project_id}', '${each.value.name}');"
-    use_legacy_sql = each.value.job.use_legacy_sql
+    query = <<-EOT
+      DECLARE src_project  STRING DEFAULT '${each.value.source.project}';
+      DECLARE src_dataset  STRING DEFAULT '${each.value.source.dataset}';
+      DECLARE dest_project STRING DEFAULT '${each.value.project_id}';
+      DECLARE dest_dataset STRING DEFAULT '${each.value.name}';
+
+      CALL `${each.value.source.project}.${each.value.source.dataset}.${each.value.source.routine}`(
+        src_project,
+        src_dataset,
+        dest_project,
+        dest_dataset
+      );
+    EOT
+
+    use_legacy_sql     = each.value.job.use_legacy_sql
+    create_disposition = ""
+    write_disposition  = ""
   }
 
   depends_on = [google_bigquery_routine.sp_clone_all_tables_sw]
