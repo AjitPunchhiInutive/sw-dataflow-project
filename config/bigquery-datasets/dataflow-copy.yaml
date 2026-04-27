@@ -1,0 +1,21 @@
+- name: copyjob_streaming_dataset_demo
+  project_id:    "sw-dev-prj-itp-secrets"
+  friendly_name: "SW copyjob Streaming Dataset"
+  description:   "SW copyjob Streaming Dataset - Main streaming tables"
+  location:      "us-east4"
+  options:
+    default_table_expiration_ms:     null
+    default_partition_expiration_ms: null
+    delete_contents_on_destroy:      false
+  source:
+    project:  "sw-dev-prj-sandbox"
+    dataset:  "pubsub_gcs_dataflow"
+    routine:  "sp_clone_all_tables_demo"
+    location: "us-east4"
+  job:
+    job_id:         "invoke-sp-clone-all-tables-v1"
+    use_legacy_sql: false
+  schedule:
+    display_name:    "Nightly-Dev-Reset"
+    schedule:        "every 24 hours"
+    service_account: "dataflow-runner@sw-dev-prj-sandbox.iam.gserviceaccount.com"

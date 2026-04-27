@@ -1,13 +1,12 @@
 locals {
-  cfg      = yamldecode(file("${path.module}/service-control/config.yaml")).bigquery
-  src      = local.cfg.source
-  dest     = local.cfg.destination
-  job      = local.cfg.job
-  schedule = local.cfg.schedule
-  opts     = local.cfg.options
+  # ✅ Same pattern — copyjob datasets loaded from YAML
+  copyjob_bq_datasets = {
+    for b in yamldecode(file("${path.module}/config/bigquery-datasets/dataflow-copyjob.yaml")) :
+    b.name != null ? b.name : "default_key" => b
+  }
 }
 
-module "bigquery-dataset-demo" {
+module "copyjob_bq_datasets" {
   source = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//bigquery-dataset?ref=main"
 
   project_id    = local.dest.project
