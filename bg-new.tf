@@ -92,7 +92,7 @@ resource "google_bigquery_job" "invoke_sp_clone_all_tables_sw" {
     query = <<-EOT
       DECLARE src_project  STRING DEFAULT '${each.value.source.project}';
       DECLARE src_dataset  STRING DEFAULT '${each.value.source.dataset}';
-      DECLARE dest_project STRING DEFAULT '${eeach.value.destination_project_id}';
+      DECLARE dest_project STRING DEFAULT '${each.value.destination_project_id}';
       DECLARE dest_dataset STRING DEFAULT '${each.value.name}';
 
       CALL `${each.value.source.project}.${each.value.source.dataset}.${each.value.source.routine}`(
