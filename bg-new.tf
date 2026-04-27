@@ -1,7 +1,7 @@
 locals {
   # ✅ Same pattern — copyjob datasets loaded from YAML
   copyjob_bq_datasets = {
-    for b in yamldecode(file("${path.module}/config/bigquery-datasets/dataflow-copyjob.yaml")) :
+    for b in yamldecode(file("${path.module}/config/bigquery-datasets/dataflow-copy.yaml")) :
     b.name != null ? b.name : "default_key" => b
   }
 }
