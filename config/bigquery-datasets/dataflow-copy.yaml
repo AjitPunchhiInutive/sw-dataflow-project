@@ -1,4 +1,4 @@
-- name:          "copyjob_streaming_dataset"
+- name:          "copyjob_streaming_dataset_sw"
   project_id:    "sw-dev-prj-itp-secrets"
   friendly_name: "SW copyjob Streaming Dataset"
   description:   "SW copyjob Streaming Dataset - Main streaming tables"
@@ -12,14 +12,14 @@
   source:
     project:  "sw-dev-prj-sandbox"
     dataset:  "pubsub_gcs_dataflow"
-    routine:  "sp_clone_all_tables"
+    routine:  "sp_clone_all_tables_sw"
     location: "us-east4"
 
   job:
-    job_id:         "invoke-sp-clone-all-tables-v1"
+    job_id:         "invoke-sp-clone-all-tables-v4"
     use_legacy_sql: false
 
   schedule:
-    display_name:    "Nightly-Dev-Reset"
+    display_name:    "Nightly-Dev-Reset-DEV"
     schedule:        "every 24 hours"
     service_account: "dataflow-runner@sw-dev-prj-sandbox.iam.gserviceaccount.com"
