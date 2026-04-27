@@ -16,7 +16,7 @@
     location: "us-east4"
 
   job:
-    job_id:         "invoke-sp-clone-all-tables-v4"
+    job_id:         "invoke-sp-clone-all-tables-v5"
     use_legacy_sql: false
 
   schedule:

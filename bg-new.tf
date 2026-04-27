@@ -5,10 +5,6 @@ locals {
     b.name != null ? b.name : "default_key" => b
   }
 }
-
-# ── 1. Destination Dataset ────────────────────────────────────────────────────
-# ✅ Fix 2: use for_each + each.value.* instead of local.dest / local.opts
-# ✅ Fix 3: module name matches depends_on reference below
 module "copyjob_bq_datasets" {
   source   = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//bigquery-dataset?ref=main"
   for_each = local.copyjob_bq_datasets
@@ -26,10 +22,7 @@ module "copyjob_bq_datasets" {
   }
 }
 
-# ── 2. Core Procedure ─────────────────────────────────────────────────────────
-# ✅ Fix 2: each.value.source.* replaces local.src.*
-# ✅ Fix 3: depends_on points to module.copyjob_bq_datasets
-resource "google_bigquery_routine" "sp_clone_all_tables_demo" {
+resource "google_bigquery_routine" "sp_clone_all_tables_sw" {
   for_each = local.copyjob_bq_datasets
 
   project      = each.value.source.project
@@ -91,13 +84,10 @@ resource "google_bigquery_routine" "sp_clone_all_tables_demo" {
     END WHILE;
   EOT
 
-  # ✅ Fix 3: correct module name
   depends_on = [module.copyjob_bq_datasets]
 }
 
-# ── 3. One-time Invocation Job ────────────────────────────────────────────────
-# ✅ Fix 2: each.value.* replaces local.src.* / local.dest.* / local.job.*
-resource "google_bigquery_job" "invoke_sp_clone_all_tables_demo" {
+resource "google_bigquery_job" "invoke_sp_clone_all_tables_sw" {
   for_each = local.copyjob_bq_datasets
 
   project  = each.value.source.project
@@ -109,7 +99,7 @@ resource "google_bigquery_job" "invoke_sp_clone_all_tables_demo" {
     use_legacy_sql = each.value.job.use_legacy_sql
   }
 
-  depends_on = [google_bigquery_routine.sp_clone_all_tables_demo]
+  depends_on = [google_bigquery_routine.sp_clone_all_tables_sw]
 }
 
 # ── 4. Scheduled Nightly Job ──────────────────────────────────────────────────
@@ -133,5 +123,5 @@ resource "google_bigquery_data_transfer_config" "nightly_dev_reset_demo" {
 
   service_account_name = each.value.schedule.service_account
 
-  depends_on = [google_bigquery_routine.sp_clone_all_tables_demo]
+  depends_on = [google_bigquery_routine.sp_clone_all_tables_sw]
 }
