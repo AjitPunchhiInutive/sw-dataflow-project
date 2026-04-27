@@ -1,7 +1,7 @@
 # ── Load YAML config ──────────────────────────────────────────────────────────
 locals {
   copyjob_bq_datasets = {
-    for b in yamldecode(file("${path.module}/config/bigquery-datasets/dataflow-job.yaml")) :
+    for b in yamldecode(file("${path.module}/config/bigquery-datasets/dataflow-copy.yaml")) :
     b.name != null ? b.name : "default_key" => b
   }
 }
