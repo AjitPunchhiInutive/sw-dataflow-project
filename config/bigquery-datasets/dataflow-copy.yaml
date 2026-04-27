@@ -1,8 +1,8 @@
 - name:          "copyjob_streaming_dataset_sw"
   destination_project_id:    "sw-dev-prj-itp-secrets"
-  destination_friendly_name: "SW copyjob Streaming Dataset"
-  destination_description:   "SW copyjob Streaming Dataset - Main streaming tables"
-  destination_location:      "us-east4"
+  friendly_name: "SW copyjob Streaming Dataset"
+  description:   "SW copyjob Streaming Dataset - Main streaming tables"
+  location:      "us-east4"
 
   options:
     default_table_expiration_ms:     null
