@@ -1,31 +1,40 @@
+# ── Load YAML config ──────────────────────────────────────────────────────────
 locals {
-  # ✅ Same pattern — copyjob datasets loaded from YAML
   copyjob_bq_datasets = {
-    for b in yamldecode(file("${path.module}/config/bigquery-datasets/dataflow-copy.yaml")) :
+    for b in yamldecode(file("${path.module}/config/bigquery-datasets/dataflow-job.yaml")) :
     b.name != null ? b.name : "default_key" => b
   }
 }
 
+# ── 1. Destination Dataset ────────────────────────────────────────────────────
+# ✅ Fix 2: use for_each + each.value.* instead of local.dest / local.opts
+# ✅ Fix 3: module name matches depends_on reference below
 module "copyjob_bq_datasets" {
-  source = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//bigquery-dataset?ref=main"
+  source   = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//bigquery-dataset?ref=main"
+  for_each = local.copyjob_bq_datasets
 
-  project_id    = local.dest.project
-  id            = local.dest.dataset
-  friendly_name = local.dest.friendly_name
-  description   = local.dest.description
-  location      = local.dest.location
+  project_id    = each.value.project_id
+  id            = each.value.name
+  friendly_name = each.value.friendly_name
+  description   = each.value.description
+  location      = each.value.location
 
   options = {
-    default_table_expiration_ms     = local.opts.default_table_expiration_ms
-    default_partition_expiration_ms = local.opts.default_partition_expiration_ms
-    delete_contents_on_destroy      = local.opts.delete_contents_on_destroy
+    default_table_expiration_ms     = each.value.options.default_table_expiration_ms
+    default_partition_expiration_ms = each.value.options.default_partition_expiration_ms
+    delete_contents_on_destroy      = each.value.options.delete_contents_on_destroy
   }
 }
 
+# ── 2. Core Procedure ─────────────────────────────────────────────────────────
+# ✅ Fix 2: each.value.source.* replaces local.src.*
+# ✅ Fix 3: depends_on points to module.copyjob_bq_datasets
 resource "google_bigquery_routine" "sp_clone_all_tables_demo" {
-  project      = local.src.project
-  dataset_id   = local.src.dataset
-  routine_id   = local.src.routine
+  for_each = local.copyjob_bq_datasets
+
+  project      = each.value.source.project
+  dataset_id   = each.value.source.dataset
+  routine_id   = each.value.source.routine
   routine_type = "PROCEDURE"
   language     = "SQL"
 
@@ -82,40 +91,47 @@ resource "google_bigquery_routine" "sp_clone_all_tables_demo" {
     END WHILE;
   EOT
 
-  depends_on = [module.bigquery-dataset-copyjob]
+  # ✅ Fix 3: correct module name
+  depends_on = [module.copyjob_bq_datasets]
 }
 
 # ── 3. One-time Invocation Job ────────────────────────────────────────────────
+# ✅ Fix 2: each.value.* replaces local.src.* / local.dest.* / local.job.*
 resource "google_bigquery_job" "invoke_sp_clone_all_tables_demo" {
-  project  = local.src.project
-  job_id   = local.job.job_id
-  location = local.src.location
+  for_each = local.copyjob_bq_datasets
+
+  project  = each.value.source.project
+  job_id   = each.value.job.job_id
+  location = each.value.source.location
 
   query {
-    query          = "CALL `${local.src.project}.${local.src.dataset}.${local.src.routine}`('${local.src.project}', '${local.src.dataset}', '${local.dest.project}', '${local.dest.dataset}');"
-    use_legacy_sql = local.job.use_legacy_sql
+    query = "CALL `${each.value.source.project}.${each.value.source.dataset}.${each.value.source.routine}`('${each.value.source.project}', '${each.value.source.dataset}', '${each.value.project_id}', '${each.value.name}');"
+    use_legacy_sql = each.value.job.use_legacy_sql
   }
 
   depends_on = [google_bigquery_routine.sp_clone_all_tables_demo]
 }
 
 # ── 4. Scheduled Nightly Job ──────────────────────────────────────────────────
-resource "google_bigquery_data_transfer_config" "Nightly-Dev-Reset-demo" {
-  project        = local.src.project
-  location       = local.src.location
-  display_name   = local.schedule.display_name
+# ✅ Fix 2: each.value.* replaces local.src.* / local.schedule.*
+resource "google_bigquery_data_transfer_config" "nightly_dev_reset_demo" {
+  for_each = local.copyjob_bq_datasets
+
+  project        = each.value.source.project
+  location       = each.value.source.location
+  display_name   = each.value.schedule.display_name
   data_source_id = "scheduled_query"
-  schedule       = local.schedule.schedule
+  schedule       = each.value.schedule.schedule
 
   schedule_options {
     start_time = timeadd(timestamp(), "24h")
   }
 
   params = {
-    query = "CALL `${local.src.project}.${local.src.dataset}.${local.src.routine}`('${local.src.project}', '${local.src.dataset}', '${local.dest.project}', '${local.dest.dataset}');"
+    query = "CALL `${each.value.source.project}.${each.value.source.dataset}.${each.value.source.routine}`('${each.value.source.project}', '${each.value.source.dataset}', '${each.value.project_id}', '${each.value.name}');"
   }
 
-  service_account_name = local.schedule.service_account
+  service_account_name = each.value.schedule.service_account
 
   depends_on = [google_bigquery_routine.sp_clone_all_tables_demo]
 }
