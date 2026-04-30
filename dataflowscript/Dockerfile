@@ -2,21 +2,52 @@ FROM gcr.io/dataflow-templates-base/python311-template-launcher-base:20260122-rc
 
 # ── Install Java ──────────────────────────────────────────────────────────────
 RUN apt-get update -qq && \
-    apt-get install -y --no-install-recommends default-jre-headless && \
+    apt-get install -y --no-install-recommends \
+        default-jre-headless \
+        curl && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# ── Create non-root user and group ───────────────────────────────────────────
+RUN groupadd --gid 1001 appgroup && \
+    useradd --uid 1001 \
+            --gid appgroup \
+            --no-create-home \
+            --shell /sbin/nologin \
+            appuser
 
 # ── Set template env vars ─────────────────────────────────────────────────────
 ENV FLEX_TEMPLATE_PYTHON_PY_FILE="/template/oden_pubsub_to_gcs.py"
-ENV FLEX_TEMPLATE_PYTHON_REQUIREMENTS_FILE="/template/requirements.txt"
+#ENV FLEX_TEMPLATE_PYTHON_REQUIREMENTS_FILE="/template/requirements.txt"
 
-# ── Copy files ────────────────────────────────────────────────────────────────
-COPY requirements.txt      /template/requirements.txt
-COPY oden_pubsub_to_gcs.py /template/oden_pubsub_to_gcs.py
+# ── Copy files with restricted ownership ─────────────────────────────────────
+COPY --chown=appuser:appgroup requirements.txt      /template/requirements.txt
+COPY --chown=appuser:appgroup oden_pubsub_to_gcs.py /template/oden_pubsub_to_gcs.py
+
+# ── Lock down template directory permissions ──────────────────────────────────
+RUN chmod 550 /template && \
+    chmod 440 /template/requirements.txt \
+              /template/oden_pubsub_to_gcs.py
 
 # ── Install dependencies ──────────────────────────────────────────────────────
 RUN pip install --no-cache-dir \
     --root-user-action=ignore \
-    -r /template/requirements.txt
+    -r /template/requirements.txt && \
+    pip cache purge
+
+# ── Health check ──────────────────────────────────────────────────────────────
+# Verifies the template launcher binary is present and executable.
+# Dataflow Flex Templates do not expose an HTTP port, so we probe
+# the launcher binary directly instead of a TCP/HTTP endpoint.
+HEALTHCHECK --interval=30s \
+            --timeout=10s \
+            --start-period=15s \
+            --retries=3 \
+    CMD test -x /opt/google/dataflow/python_template_launcher || exit 1
+
+# ── Drop to non-root user ─────────────────────────────────────────────────────
+USER appuser
+
+WORKDIR /template
 
 ENTRYPOINT ["/opt/google/dataflow/python_template_launcher"]
