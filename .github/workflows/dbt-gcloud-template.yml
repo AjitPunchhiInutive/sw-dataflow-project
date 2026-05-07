@@ -10,8 +10,8 @@ on:
 
 env:
   REGION:     us-east4
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  REPOSITORY: sw-dataflow-template
+  PROJECT_ID: sw-dev-prj-sandbox
+  REPOSITORY: dbt-template
   IMAGE_NAME: dbt-docker-image
 
 jobs:
