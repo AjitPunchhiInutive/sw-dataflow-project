@@ -173,10 +173,10 @@ jobs:
           echo "image=$IMAGE" >> $GITHUB_OUTPUT
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Job 4 │ Deploy to Cloud Run
+# Job 4 │ Deploy to Cloud Run Job
 # ══════════════════════════════════════════════════════════════════════════════
   deploy-cloud-run:
-    name: "Step 4 | Deploy to Cloud Run"
+    name: "Step 4 | Deploy to Cloud Run Job"
     needs: build-and-push
     runs-on: ubuntu-latest
     permissions:
@@ -201,44 +201,72 @@ jobs:
         with:
           version: 'latest'
 
-      - name: Deploy to Cloud Run
+      - name: Create or Update Cloud Run Job
         run: |
           IMAGE="${{ needs.build-and-push.outputs.image }}"
 
-          echo "Deploying image to Cloud Run..."
-          echo "  Service : ${{ env.CLOUD_RUN_SERVICE }}"
-          echo "  Image   : $IMAGE"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  Deploying Cloud Run Job"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  Job Name        : dbt-run-job"
+          echo "  Image           : $IMAGE"
+          echo "  Service Account : ${{ secrets.DBT_SERVICE_ACCOUNT }}"
+          echo "  Memory          : 2Gi"
+          echo "  CPU             : 2"
+          echo "  Task Timeout    : 30m"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-          gcloud run deploy ${{ env.CLOUD_RUN_SERVICE }} \
-            --image="$IMAGE" \
-            --region="${{ env.REGION }}" \
-            --project="${{ env.PROJECT_ID }}" \
-            --service-account="${{ env.DBT_SERVICE_ACCOUNT }}" \
-            --no-allow-unauthenticated \
-            --platform=managed \
-            --quiet
+          # Check if the job already exists — update it if so, create if not
+          if gcloud run jobs describe dbt-run-job \
+              --region="${{ env.REGION }}" \
+              --project="${{ env.PROJECT_ID }}" \
+              --quiet 2>/dev/null; then
 
-      - name: Confirm Cloud Run Deployment
+            echo "🔄 Job exists — updating..."
+            gcloud run jobs update dbt-run-job \
+              --image="$IMAGE" \
+              --region="${{ env.REGION }}" \
+              --project="${{ env.PROJECT_ID }}" \
+              --service-account="${{ secrets.DBT_SERVICE_ACCOUNT }}" \
+              --set-secrets=/secrets/sa-key.json=dbt-sa-key:latest \
+              --memory=2Gi \
+              --cpu=2 \
+              --task-timeout=30m \
+              --quiet
+
+          else
+
+            echo "🆕 Job not found — creating..."
+            gcloud run jobs create dbt-run-job \
+              --image="$IMAGE" \
+              --region="${{ env.REGION }}" \
+              --project="${{ env.PROJECT_ID }}" \
+              --service-account="${{ secrets.DBT_SERVICE_ACCOUNT }}" \
+              --set-secrets=/secrets/sa-key.json=dbt-sa-key:latest \
+              --memory=2Gi \
+              --cpu=2 \
+              --task-timeout=30m \
+              --quiet
+
+          fi
+
+      - name: Confirm Cloud Run Job Deployment
         run: |
-          SERVICE_URL=$(gcloud run services describe ${{ env.CLOUD_RUN_SERVICE }} \
-            --region="${{ env.REGION }}" \
-            --project="${{ env.PROJECT_ID }}" \
-            --format="value(status.url)")
+          echo "Fetching job details..."
 
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  ✅ Docker image pushed to Artifact Registry"
-          echo "  ✅ Cloud Run service deployed successfully"
-          echo "  🔗 Service URL : $SERVICE_URL"
-          echo "  🔗 GCP Console : https://console.cloud.google.com/run/detail/${{ env.REGION }}/${{ env.CLOUD_RUN_SERVICE }}/metrics?project=${{ env.PROJECT_ID }}"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-          echo "Latest Revision:"
-          gcloud run services describe ${{ env.CLOUD_RUN_SERVICE }} \
+          gcloud run jobs describe dbt-run-job \
             --region="${{ env.REGION }}" \
             --project="${{ env.PROJECT_ID }}" \
             --format="table(
                 metadata.name,
-                status.latestCreatedRevisionName,
-                status.latestReadyRevisionName,
-                status.url
+                spec.template.spec.template.spec.containers[0].image,
+                spec.template.spec.template.spec.serviceAccountName,
+                spec.template.spec.template.spec.timeoutSeconds,
+                metadata.creationTimestamp
               )"
+
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  ✅ Docker image pushed to Artifact Registry"
+          echo "  ✅ Cloud Run Job deployed successfully"
+          echo "  🔗 GCP Console : https://console.cloud.google.com/run/jobs/details/${{ env.REGION }}/dbt-run-job/executions?project=${{ env.PROJECT_ID }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
