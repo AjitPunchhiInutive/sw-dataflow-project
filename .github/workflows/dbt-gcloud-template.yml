@@ -228,7 +228,6 @@ jobs:
               --region="${{ env.REGION }}" \
               --project="${{ env.PROJECT_ID }}" \
               --service-account="${{ secrets.DBT_SERVICE_ACCOUNT }}" \
-              --set-secrets=/secrets/sa-key.json=dbt-sa-key:latest \
               --memory=2Gi \
               --cpu=2 \
               --task-timeout=30m \
@@ -242,7 +241,6 @@ jobs:
               --region="${{ env.REGION }}" \
               --project="${{ env.PROJECT_ID }}" \
               --service-account="${{ secrets.DBT_SERVICE_ACCOUNT }}" \
-              --set-secrets=/secrets/sa-key.json=dbt-sa-key:latest \
               --memory=2Gi \
               --cpu=2 \
               --task-timeout=30m \
