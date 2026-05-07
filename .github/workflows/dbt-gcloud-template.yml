@@ -76,7 +76,7 @@ jobs:
                 status.latestReadyRevisionName,
                 status.url
               )" 2>/dev/null \
-          || echo "    Service '${{ env.CLOUD_RUN_SERVICE }}' not found — will be created fresh."
+          || echo "  ⚠️  Service '${{ env.CLOUD_RUN_SERVICE }}' not found — will be created fresh."
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Job 2 │ Approval Gate
@@ -203,9 +203,8 @@ jobs:
 
       - name: Create or Update Cloud Run Job
         run: |
-          # Always use :latest tag so the job picks up the most recent image
           IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:latest"
- 
+
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "  Deploying Cloud Run Job"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -216,13 +215,14 @@ jobs:
           echo "  CPU             : 2"
           echo "  Task Timeout    : 30m"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
- 
+
+          # Check if the job already exists — update it if so, create if not
           if gcloud run jobs describe dbt-run-job \
               --region="${{ env.REGION }}" \
               --project="${{ env.PROJECT_ID }}" \
               --quiet 2>/dev/null; then
- 
-            echo "Job exists — updating with latest image..."
+
+            echo "🔄 Job exists — updating..."
             gcloud run jobs update dbt-run-job \
               --image="$IMAGE" \
               --region="${{ env.REGION }}" \
@@ -232,10 +232,10 @@ jobs:
               --cpu=2 \
               --task-timeout=30m \
               --quiet
- 
+
           else
- 
-            echo " Job not found — creating with latest image..."
+
+            echo "🆕 Job not found — creating..."
             gcloud run jobs create dbt-run-job \
               --image="$IMAGE" \
               --region="${{ env.REGION }}" \
@@ -245,10 +245,8 @@ jobs:
               --cpu=2 \
               --task-timeout=30m \
               --quiet
- 
+
           fi
- 
-          echo "Cloud Run Job deployed with image: $IMAGE"
 
       - name: Confirm Cloud Run Job Deployment
         run: |
@@ -266,7 +264,7 @@ jobs:
               )"
 
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "   Docker image pushed to Artifact Registry"
-          echo "   Cloud Run Job deployed successfully"
-          echo "   GCP Console : https://console.cloud.google.com/run/jobs/details/${{ env.REGION }}/dbt-run-job/executions?project=${{ env.PROJECT_ID }}"
+          echo "  ✅ Docker image pushed to Artifact Registry"
+          echo "  ✅ Cloud Run Job deployed successfully"
+          echo "  🔗 GCP Console : https://console.cloud.google.com/run/jobs/details/${{ env.REGION }}/dbt-run-job/executions?project=${{ env.PROJECT_ID }}"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
