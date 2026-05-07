@@ -14,6 +14,7 @@ env:
   REPOSITORY:        dbt-template
   IMAGE_NAME:        dbt-docker-image
   CLOUD_RUN_SERVICE: dbt-cloud-run-service
+  DBT_SERVICE_ACCOUNT: dataflow-runner@sw-dev-prj-sandbox.iam.gserviceaccount.com
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Job 1 │ Plan
@@ -212,7 +213,7 @@ jobs:
             --image="$IMAGE" \
             --region="${{ env.REGION }}" \
             --project="${{ env.PROJECT_ID }}" \
-            --service-account="${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}" \
+            --service-account="${{ env.DBT_SERVICE_ACCOUNT }}" \
             --no-allow-unauthenticated \
             --platform=managed \
             --quiet
