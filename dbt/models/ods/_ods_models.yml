@@ -1,0 +1,53 @@
+# =============================================================================
+# _ods_models.yml — dbt Model Documentation and Tests for ODS Layer
+# =============================================================================
+# PURPOSE:
+#   Defines column-level documentation and data quality tests for every model
+#   in the ods/ folder. These tests validate the business logic applied in
+#   ods_customer_orders.sql after the JOIN and aggregation.
+#
+# WHY ODS TESTS MATTER:
+#   The ODS layer contains derived/computed values (customer_segment, lifetime_value).
+#   Testing these ensures the business logic in ods_customer_orders.sql is correct
+#   and that no customers were lost or duplicated in the JOIN.
+#
+# RELATIONSHIP TO EDS TESTS:
+#   EDS tests validate raw → clean transformation correctness.
+#   ODS tests validate clean → business logic correctness.
+#   Both layers must pass for the pipeline to be considered healthy.
+# =============================================================================
+
+version: 2
+
+models:
+
+  # ── ods_customer_orders ─────────────────────────────────────────────────────
+  # Curated table: one row per customer with order aggregations and segment
+  - name: ods_customer_orders
+    description: "Curated customer orders summary — joins customers with orders, adds aggregations and segmentation"
+    columns:
+
+      - name: customer_id
+        description: "Primary key — one row per customer, no duplicates allowed"
+        tests:
+          - unique      # GROUP BY in the model should guarantee this — test confirms it
+          - not_null    # every row must have a customer
+
+      - name: total_orders
+        description: "Total number of orders placed by the customer (0 for customers with no orders)"
+        tests:
+          - not_null    # coalesce in the model ensures this is never NULL
+
+      - name: lifetime_value
+        description: "Sum of all order amounts in NUMERIC — 0 for customers with no orders"
+        tests:
+          - not_null    # coalesce(sum(...), 0) in the model ensures this is never NULL
+
+      - name: customer_segment
+        description: "Derived segment based on total_orders: no_orders / new / active / loyal"
+        tests:
+          - not_null
+          - accepted_values:
+              # These four values are the only valid outputs of the CASE statement
+              # in ods_customer_orders.sql. Any other value means the logic broke.
+              values: ['no_orders', 'new', 'active', 'loyal']

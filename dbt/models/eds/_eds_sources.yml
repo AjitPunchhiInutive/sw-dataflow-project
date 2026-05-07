@@ -1,0 +1,67 @@
+# =============================================================================
+# _eds_sources.yml — dbt Source Declarations for EDS Layer
+# =============================================================================
+# PURPOSE:
+#   Declares the RAW BigQuery tables that dbt reads as source data.
+#   Using source() declarations (instead of directly referencing tables in SQL)
+#   gives dbt the ability to:
+#     1. Track lineage — dbt knows where data originates
+#     2. Run source freshness checks — detect stale upstream data
+#     3. Resolve the full table path at runtime using database + schema
+#
+# HOW {{ source('raw', 'raw_orders') }} RESOLVES:
+#   source name : 'raw'          (matches the 'name' field below)
+#   table name  : 'raw_orders'   (matches the table name under tables)
+#   resolved to : `southwire-poc.raw.raw_orders`
+#                  ↑ database      ↑ schema  ↑ table
+#
+# THESE TABLES ARE NOT CREATED BY dbt:
+#   dbt only reads from source tables — they must exist before dbt run.
+#   In the POC they were created manually. In production, upstream
+#   ingestion pipelines (Datastream, Dataflow, etc.) populate them.
+# =============================================================================
+
+version: 2
+
+sources:
+  - name: raw                                   # source alias used in {{ source('raw', ...) }} calls
+    description: "Raw source data from upstream systems"
+    database: southwire-poc                     # GCP project ID
+    schema: raw                                 # BigQuery dataset name
+
+    tables:
+
+      # ── raw_orders ─────────────────────────────────────────────────────────
+      # Raw orders from the upstream order management system.
+      # All columns are STRING — the ingestion layer writes raw without typing.
+      # EDS model eds_stg_orders casts and renames these columns.
+      - name: raw_orders
+        description: "Raw orders table — untyped, uncleaned source data"
+        columns:
+          - name: order_id
+            description: "Primary key for orders — arrives as STRING, cast to INT64 in EDS"
+          - name: customer_id
+            description: "Foreign key to customers — arrives as STRING, cast to INT64 in EDS"
+          - name: order_date
+            description: "Order placement date — arrives as STRING (YYYY-MM-DD), cast to DATE in EDS"
+          - name: status
+            description: "Order status — raw casing varies, normalised to UPPER in EDS"
+          - name: amount
+            description: "Order monetary value — arrives as STRING, cast to NUMERIC in EDS"
+
+      # ── raw_customers ──────────────────────────────────────────────────────
+      # Raw customers from the upstream CRM / registration system.
+      # All columns are STRING — typed and cleaned in eds_stg_customers.
+      - name: raw_customers
+        description: "Raw customers table — untyped, uncleaned source data"
+        columns:
+          - name: customer_id
+            description: "Primary key for customers — arrives as STRING, cast to INT64 in EDS"
+          - name: first_name
+            description: "Customer first name — whitespace trimmed in EDS"
+          - name: last_name
+            description: "Customer last name — whitespace trimmed in EDS"
+          - name: email
+            description: "Customer email — lowercased and trimmed in EDS"
+          - name: created_at
+            description: "Account creation timestamp — ISO string, cast to TIMESTAMP in EDS"

@@ -1,0 +1,75 @@
+# =============================================================================
+# _eds_models.yml — dbt Model Documentation and Tests for EDS Layer
+# =============================================================================
+# PURPOSE:
+#   Defines column-level documentation and data quality tests for every model
+#   in the eds/ folder. dbt runs these tests when `dbt test` is executed
+#   (Step 2 in entrypoint.sh / the dbt_test Airflow task).
+#
+# TEST TYPES USED:
+#   unique         → fails if any two rows share the same value in this column
+#   not_null       → fails if any row has a NULL value in this column
+#   accepted_values → fails if any value is not in the declared list
+#
+# WHEN TESTS RUN:
+#   - Locally:    dbt test --profiles-dir /dbt --target prod
+#   - Cloud Run:  Step 2 of entrypoint.sh default mode
+#   - Composer:   dbt_test task (separate CloudRunExecuteJobOperator)
+#
+# WHAT HAPPENS ON TEST FAILURE:
+#   dbt exits with code 1 → Cloud Run marks the task FAILED → Airflow
+#   marks the dbt_test task as failed and triggers retry/alert logic.
+# =============================================================================
+
+version: 2
+
+models:
+
+  # ── eds_stg_orders ──────────────────────────────────────────────────────────
+  # Staging view over raw.raw_orders — cleaned and typed
+  - name: eds_stg_orders
+    description: "Staged orders from the raw layer — cleaned, typed, and renamed"
+    columns:
+
+      - name: order_id
+        description: "Primary key — unique INT64 identifier per order"
+        tests:
+          - unique      # no two orders should share an ID
+          - not_null    # every order must have an ID
+
+      - name: customer_id
+        description: "Foreign key to eds_stg_customers — INT64"
+        tests:
+          - not_null    # every order must belong to a customer
+
+      - name: order_date
+        description: "Date the order was placed — DATE type"
+        tests:
+          - not_null
+
+      - name: order_status
+        description: "Normalised order status — always UPPERCASE"
+        tests:
+          - not_null
+          - accepted_values:
+              # These are the only valid status values from the upstream system.
+              # Any value outside this list indicates a source data quality issue.
+              values: ['PENDING', 'SHIPPED', 'COMPLETED', 'CANCELLED', 'RETURNED']
+
+  # ── eds_stg_customers ───────────────────────────────────────────────────────
+  # Staging view over raw.raw_customers — cleaned and typed
+  - name: eds_stg_customers
+    description: "Staged customers from the raw layer — cleaned and typed"
+    columns:
+
+      - name: customer_id
+        description: "Primary key — unique INT64 identifier per customer"
+        tests:
+          - unique      # no duplicate customers
+          - not_null
+
+      - name: email
+        description: "Customer email — normalised to lowercase"
+        tests:
+          - unique      # each customer should have a unique email
+          - not_null

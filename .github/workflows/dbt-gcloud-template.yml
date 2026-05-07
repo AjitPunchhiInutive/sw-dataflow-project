@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'dataflowscript/**'
+      - 'dbt/**'
   workflow_dispatch:
 
 env:

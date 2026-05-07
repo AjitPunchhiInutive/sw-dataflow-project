@@ -1,0 +1,24 @@
+# =============================================================================
+# packages.yml — dbt Package Dependencies
+# =============================================================================
+# PURPOSE:
+#   Declares third-party dbt packages this project depends on.
+#   Packages are installed by running `dbt deps` — this happens at
+#   DOCKER BUILD TIME (in the Dockerfile) so packages are baked into
+#   the image and do not need to be downloaded at Cloud Run runtime.
+#
+# INSTALLED LOCATION:
+#   Packages are installed into the dbt_packages/ directory inside the
+#   container at /dbt/dbt_packages/. This folder is listed in
+#   clean-targets in dbt_project.yml (deleted by `dbt clean` locally).
+#
+# dbt_utils:
+#   The standard dbt utility library from dbt Labs. Provides commonly
+#   used macros for SQL generation, testing, and schema management.
+#   Version range >=1.0.0 <2.0.0 pins to the stable v1.x series.
+#   Used in models via: {{ dbt_utils.some_macro() }}
+# =============================================================================
+
+packages:
+  - package: dbt-labs/dbt_utils
+    version: [">=1.0.0", "<2.0.0"]

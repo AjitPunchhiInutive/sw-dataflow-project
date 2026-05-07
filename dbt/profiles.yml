@@ -1,0 +1,65 @@
+# =============================================================================
+# profiles.yml — dbt Connection Profile for BigQuery
+# =============================================================================
+# PURPOSE:
+#   Tells dbt HOW to connect to BigQuery. Contains two output targets:
+#   - dev  : for local development, reads SA key from an env variable
+#   - prod : for Cloud Run execution, reads SA key from a Secret Manager mount
+#
+# HOW dbt USES THIS FILE:
+#   dbt reads profiles.yml at runtime using --profiles-dir /dbt (set in entrypoint.sh)
+#   It selects the target based on --target prod/dev passed in the command.
+#
+# DATASET NAMING BEHAVIOUR (important):
+#   The 'dataset: raw' here is the DEFAULT dataset / schema prefix.
+#   dbt BigQuery generates output dataset names as:
+#     {dataset}_{custom_schema}  →  raw + eds = raw_eds,  raw + ods = raw_ods
+#   The custom_schema comes from +schema config in dbt_project.yml.
+#   This is why BigQuery shows datasets named raw_eds and raw_ods (not eds/ods).
+#
+# SECRET MANAGER INTEGRATION (prod target):
+#   Cloud Run mounts the 'dbt-sa-key' secret from Secret Manager at /secrets/sa-key.json
+#   This is configured in deploy_cloudrun.sh via --set-secrets flag.
+#   The SA key JSON gives dbt permission to query/write BigQuery on behalf of
+#   the dbt-bigquery-sa service account.
+# =============================================================================
+
+dbt_gcp_poc:
+  target: dev  # default target — overridden to 'prod' by entrypoint.sh at runtime
+
+  outputs:
+
+    # ── Local Development Target ─────────────────────────────────────────────
+    # Used when running dbt locally for development and testing.
+    # Reads the SA key path from an environment variable so the key is never
+    # hardcoded and different developers can point to their own key files.
+    dev:
+      type: bigquery
+      method: service-account          # authenticate using a SA JSON key file
+      project: southwire-poc           # GCP project where BigQuery datasets live
+      dataset: raw                     # default dataset prefix (outputs become raw_eds, raw_ods)
+      location: us-east4               # BQ dataset location — must match where datasets were created
+      threads: 4                       # number of parallel model execution threads
+      keyfile: "{{ env_var('DBT_SA_KEY_PATH') }}"  # path injected via environment variable
+      timeout_seconds: 300             # BQ query timeout
+      priority: interactive            # BQ job priority: interactive (fast) vs batch (queued)
+      retries: 1                       # retry failed BQ API calls once before failing
+
+    # ── Production Target (Cloud Run) ────────────────────────────────────────
+    # Used when the container runs inside Cloud Run Job.
+    # The SA key is NOT stored in this file or in the image. Instead:
+    # 1. Secret Manager holds the key as secret 'dbt-sa-key'
+    # 2. Cloud Run mounts it at /secrets/sa-key.json at container startup
+    # 3. dbt reads it from this hardcoded path at runtime
+    # This means the key is only in memory during execution — never on disk permanently.
+    prod:
+      type: bigquery
+      method: service-account
+      project: southwire-poc
+      dataset: raw                     # prefix — models write to raw_eds and raw_ods
+      location: us-east4
+      threads: 4
+      keyfile: /secrets/sa-key.json    # mounted at runtime by Cloud Run from Secret Manager
+      timeout_seconds: 300
+      priority: interactive
+      retries: 1

@@ -1,0 +1,66 @@
+# =============================================================================
+# dbt_project.yml — dbt Project Configuration
+# =============================================================================
+# PURPOSE:
+#   The root configuration file for the dbt project. Tells dbt:
+#   - Where to find models, tests, macros, seeds, snapshots (directory paths)
+#   - How to materialize each model layer in BigQuery (view vs table)
+#   - Which schema/dataset to write each layer into
+#
+# MATERIALIZATION STRATEGY:
+#   eds (Enterprise Data Store — staging layer):
+#     materialized: view
+#     → dbt creates a VIEW in BigQuery. No data is physically stored.
+#       Every query against eds models re-reads from raw source tables.
+#       Use for lightweight transformations that don't need storage.
+#
+#   ods (Operational Data Store — curated layer):
+#     materialized: table
+#     → dbt creates a TABLE in BigQuery. Data is physically written.
+#       Use for aggregated/expensive models that should be pre-computed.
+#
+# SCHEMA NAMING (how raw_eds and raw_ods dataset names are generated):
+#   In profiles.yml, dataset: raw is the base prefix.
+#   dbt BigQuery appends the custom +schema value to it:
+#     raw  +  eds  =  raw_eds  (BigQuery dataset for EDS views)
+#     raw  +  ods  =  raw_ods  (BigQuery dataset for ODS tables)
+#   This is standard dbt BigQuery behaviour. To remove the prefix and use
+#   plain 'eds'/'ods', add a generate_schema_name macro to macros/.
+# =============================================================================
+
+name: 'dbt_gcp_poc'       # project name — must match profile name in profiles.yml
+version: '1.0.0'
+config-version: 2
+
+profile: 'dbt_gcp_poc'    # links to the dbt_gcp_poc block in profiles.yml
+
+# Directory paths — dbt looks in these folders for each artifact type
+model-paths:    ["models"]
+analysis-paths: ["analyses"]
+test-paths:     ["tests"]
+seed-paths:     ["seeds"]
+macro-paths:    ["macros"]
+snapshot-paths: ["snapshots"]
+
+# Folders that `dbt clean` will delete (compiled SQL, installed packages)
+clean-targets:
+  - "target"       # compiled model SQL output
+  - "dbt_packages" # installed packages from packages.yml
+
+# Model-level configuration — applies to all models under each folder
+models:
+  dbt_gcp_poc:
+
+    # EDS layer: staging / cleansing models
+    # These are thin transformations on top of raw source tables.
+    # Stored as views — no physical data, always fresh from source.
+    eds:
+      +materialized: view    # BigQuery VIEW — no storage cost
+      +schema: eds           # writes to dataset: raw_eds (prefix + schema)
+
+    # ODS layer: curated / business logic models
+    # These join and aggregate EDS models into consumption-ready tables.
+    # Stored as tables — data is physically written on each dbt run.
+    ods:
+      +materialized: table   # BigQuery TABLE — pre-computed, fast to query
+      +schema: ods           # writes to dataset: raw_ods (prefix + schema)
