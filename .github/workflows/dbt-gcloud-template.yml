@@ -1,6 +1,11 @@
-name: Dataflow Template Build
+name: Build and Push Docker Image
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'dbt/**'
   pull_request:
     branches:
       - main
@@ -9,14 +14,15 @@ on:
   workflow_dispatch:
 
 env:
-  TF_DIR:      ./dataflowscript
-  CONFIG_FILE: ./dataflowscript/config.json   # ← single source of truth
+  REGION:     us-east4
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REPOSITORY: sw-dataflow-template
+  IMAGE_NAME: dbt-docker-image
 
 jobs:
 
-  # ── Job 1: Plan ───────────────────────────────────────────────────────────
-  plan-dataflow-template:
-    name: "Step 1 | Plan Dataflow Deployment"
+  build-and-push:
+    name: "Build & Push Docker Image"
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -27,21 +33,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      # ── Load config.json → env vars (reused across all jobs) ─────────────
-      - name: Load Config
-        run: |
-          CONFIG=$(cat ${{ env.CONFIG_FILE }})
-          echo "PROJECT_ID=$(echo $CONFIG      | jq -r '.project_id')"      >> $GITHUB_ENV
-          echo "REGION=$(echo $CONFIG          | jq -r '.region')"          >> $GITHUB_ENV
-          echo "JOB_NAME=$(echo $CONFIG        | jq -r '.job_name')"        >> $GITHUB_ENV
-          echo "NETWORK=$(echo $CONFIG         | jq -r '.network')"         >> $GITHUB_ENV
-          echo "SUBNETWORK=$(echo $CONFIG      | jq -r '.subnetwork')"      >> $GITHUB_ENV
-          echo "SERVICE_ACCOUNT=$(echo $CONFIG | jq -r '.service_account')" >> $GITHUB_ENV
-          echo "TEMPLATE_BUCKET=$(echo $CONFIG | jq -r '.template_bucket')" >> $GITHUB_ENV
-          echo "SUBSCRIPTION=$(echo $CONFIG    | jq -r '.subscription')"    >> $GITHUB_ENV
-          echo "BQ_TABLE_OK=$(echo $CONFIG     | jq -r '.bq_table_ok')"     >> $GITHUB_ENV
-          echo "BQ_TABLE_ERR=$(echo $CONFIG    | jq -r '.bq_table_err')"    >> $GITHUB_ENV
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -55,248 +46,39 @@ jobs:
         with:
           version: 'latest'
 
-      - name: Show Deployment Plan
+      - name: Configure Docker for Artifact Registry
         run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Dataflow Deployment Plan"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Job Name          : ${{ env.JOB_NAME }}"
-          echo "  Template          : ${{ env.TEMPLATE_BUCKET }}/oden-gcs-parquet-${{ github.run_id }}.json"
-          echo "  Region            : ${{ env.REGION }}"
-          echo "  Project           : ${{ env.PROJECT_ID }}"
-          echo "  Service Acct      : ${{ env.SERVICE_ACCOUNT }}"
-          echo "  Network           : ${{ env.NETWORK }}"
-          echo "  Subnetwork        : ${{ env.SUBNETWORK }}"
-          echo "  Public IPs        : Disabled"
-          echo "  Streaming Engine  : Enabled"
-          echo "  Input Subscription: ${{ env.SUBSCRIPTION }}"
-          echo "  BQ OK Table       : ${{ env.BQ_TABLE_OK }}"
-          echo "  BQ Error Table    : ${{ env.BQ_TABLE_ERR }}"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-      - name: Set Active GCloud Project
-        run: |
-          gcloud config set project ${{ env.PROJECT_ID }}
-          echo "Active project set to: $(gcloud config get-value project)"
-
-
-      - name: Preview Active Dataflow Jobs
-        run: |
-          echo "Currently Running Dataflow Jobs:"
-          gcloud dataflow jobs list \
-            --region="${{ env.REGION }}" \
-            --project="${{ env.PROJECT_ID }}" \
-            --filter="currentState=JOB_STATE_RUNNING" \
-            --format="table(id, name, currentState, startTime)"
-
-  # ── Job 2: Approval ───────────────────────────────────────────────────────
-  approval:
-    name: "Step 2 | Approval Gate"
-    needs: plan-dataflow-template
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    environment:
-      name: dataflow-approval
-      url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-    steps:
-      - name: Approval Required
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Review the plan above, then approve"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Approval granted - proceeding to build"
-
-  # ── Job 3: Build ──────────────────────────────────────────────────────────
-  build-dataflow-template:
-    name: "Step 3 | Build Dataflow Flex Template"
-    needs: approval
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Load Config
-        run: |
-          CONFIG=$(cat ${{ env.CONFIG_FILE }})
-          echo "PROJECT_ID=$(echo $CONFIG      | jq -r '.project_id')"      >> $GITHUB_ENV
-          echo "REGION=$(echo $CONFIG          | jq -r '.region')"          >> $GITHUB_ENV
-          echo "TEMPLATE_BUCKET=$(echo $CONFIG | jq -r '.template_bucket')" >> $GITHUB_ENV
-
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          project_id:                 ${{ secrets.GCP_PROJECT_ID }}
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
-
-      - name: Setup GCloud CLI
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          version: 'latest'
+          gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Verify Docker Installation
-        run: |
-          docker --version
-          docker buildx version
-
       - name: Build and Push Docker Image
         run: |
-          IMAGE="us-east4-docker.pkg.dev/${{ env.PROJECT_ID }}/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}"
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.run_id }}"
+          LATEST="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:latest"
 
-          echo "Configuring Docker for Artifact Registry..."
-          gcloud auth configure-docker us-east4-docker.pkg.dev --quiet
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  Docker Build & Push"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  Image  : $IMAGE"
+          echo "  Source : ./dbt/Dockerfile"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-          echo "Building Docker image: $IMAGE"
+          echo "Building Docker image..."
           docker build \
             --no-cache \
             --tag "$IMAGE" \
-            --file "./dataflowscript/Dockerfile" \
-            ./dataflowscript
+            --tag "$LATEST" \
+            --file "./dbt/Dockerfile" \
+            ./dbt
 
-          echo "Pushing image..."
+          echo "Pushing image with run_id tag..."
           docker push "$IMAGE"
-          echo "✅ Image pushed: $IMAGE"
 
-      - name: Build Flex Template JSON
-        run: |
-          IMAGE="us-east4-docker.pkg.dev/${{ env.PROJECT_ID }}/sw-dataflow-template/oden-gcs-parquet:${{ github.run_id }}"
-          TEMPLATE="${{ env.TEMPLATE_BUCKET }}/oden-gcs-parquet-${{ github.run_id }}.json"
+          echo "Pushing image with latest tag..."
+          docker push "$LATEST"
 
-          echo "Building Flex Template → $TEMPLATE"
-          gcloud dataflow flex-template build "$TEMPLATE" \
-            --image="$IMAGE" \
-            --sdk-language=PYTHON \
-            --metadata-file=./dataflowscript/metadata.json \
-            --project="${{ env.PROJECT_ID }}"
-          echo "✅ Flex Template uploaded to GCS"
-
-      - name: Confirm Template Upload
-        run: |
-          TEMPLATE="${{ env.TEMPLATE_BUCKET }}/oden-gcs-parquet-${{ github.run_id }}.json"
-          gsutil ls "$TEMPLATE"
-          echo "✅ Template confirmed in GCS"
-
-  # ── Job 4: Deploy ─────────────────────────────────────────────────────────
-  deploy-dataflow-template:
-    name: "Step 4 | Deploy Dataflow Flex Template"
-    needs: build-dataflow-template
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Load Config
-        run: |
-          CONFIG=$(cat ${{ env.CONFIG_FILE }})
-          echo "PROJECT_ID=$(echo $CONFIG      | jq -r '.project_id')"      >> $GITHUB_ENV
-          echo "REGION=$(echo $CONFIG          | jq -r '.region')"          >> $GITHUB_ENV
-          echo "JOB_NAME=$(echo $CONFIG        | jq -r '.job_name')"        >> $GITHUB_ENV
-          echo "NETWORK=$(echo $CONFIG         | jq -r '.network')"         >> $GITHUB_ENV
-          echo "SUBNETWORK=$(echo $CONFIG      | jq -r '.subnetwork')"      >> $GITHUB_ENV
-          echo "SERVICE_ACCOUNT=$(echo $CONFIG | jq -r '.service_account')" >> $GITHUB_ENV
-          echo "TEMPLATE_BUCKET=$(echo $CONFIG | jq -r '.template_bucket')" >> $GITHUB_ENV
-          echo "SUBSCRIPTION=$(echo $CONFIG    | jq -r '.subscription')"    >> $GITHUB_ENV
-          echo "BQ_TABLE_OK=$(echo $CONFIG     | jq -r '.bq_table_ok')"     >> $GITHUB_ENV
-          echo "BQ_TABLE_ERR=$(echo $CONFIG    | jq -r '.bq_table_err')"    >> $GITHUB_ENV
-
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          project_id:                 ${{ secrets.GCP_PROJECT_ID }}
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
-
-      - name: Setup GCloud CLI
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          version: 'latest'
-
-      - name: Validate Template Exists in GCS
-        run: |
-          TEMPLATE="${{ env.TEMPLATE_BUCKET }}/oden-gcs-parquet-${{ github.run_id }}.json"
-          gsutil stat "$TEMPLATE"
-          echo "✅ Template found — ready for deployment"
-
-      - name: Drain Existing Dataflow Job
-        run: |
-          JOB_ID=$(gcloud dataflow jobs list \
-            --project="${{ env.PROJECT_ID }}" \
-            --region="${{ env.REGION }}" \
-            --filter="name=${{ env.JOB_NAME }} AND state=Running" \
-            --format=value\(id\) | head -n 1)
-
-          if [ -z "$JOB_ID" ]; then
-            echo "No running job found. Skipping drain."
-            exit 0
-          fi
-
-          echo "Draining job: $JOB_ID ..."
-          gcloud dataflow jobs drain "$JOB_ID" \
-            --project="${{ env.PROJECT_ID }}" \
-            --region="${{ env.REGION }}"
-
-          echo "Waiting for drain to complete..."
-          while true; do
-            STATE=$(gcloud dataflow jobs describe "$JOB_ID" \
-              --project="${{ env.PROJECT_ID }}" \
-              --region="${{ env.REGION }}" \
-              --format=value\(currentState\))
-            echo "  Current state: $STATE"
-            if [ "$STATE" = "JOB_STATE_DRAINED" ] || \
-               [ "$STATE" = "JOB_STATE_DONE" ]    || \
-               [ "$STATE" = "JOB_STATE_CANCELLED" ]; then
-              echo "✅ Job drained successfully."
-              break
-            fi
-            sleep 30
-          done
-
-      - name: Deploy Dataflow Flex Template
-        run: |
-          TEMPLATE="${{ env.TEMPLATE_BUCKET }}/oden-gcs-parquet-${{ github.run_id }}.json"
-
-          gcloud dataflow flex-template run "${{ env.JOB_NAME }}" \
-            --project="${{ env.PROJECT_ID }}" \
-            --region="${{ env.REGION }}" \
-            --template-file-gcs-location="$TEMPLATE" \
-            --service-account-email="${{ env.SERVICE_ACCOUNT }}" \
-            --network="${{ env.NETWORK }}" \
-            --subnetwork="${{ env.SUBNETWORK }}" \
-            --disable-public-ips \
-            --enable-streaming-engine \
-            --parameters=subscription="${{ env.SUBSCRIPTION }}" \
-            --parameters=bq_table_ok="${{ env.BQ_TABLE_OK }}" \
-            --parameters=bq_table_err="${{ env.BQ_TABLE_ERR }}" \
-            --parameters=gcs_output_path="gs://sw-rds-dataflow-gcs-itp/output/" \
-            --parameters=temp_location="gs://sw-rds-dataflow-gcs-itp/tmp" \
-            --parameters=staging_location="gs://sw-rds-dataflow-gcs-itp/staging"
-
-      - name: Confirm Dataflow Job Launched
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo " ✅ Docker image pushed to Artifact Registry"
-          echo " ✅ Flex Template uploaded to GCS"
-          echo " ✅ Dataflow job deployed"
-          echo " 🔗 https://console.cloud.google.com/dataflow/jobs?project=${{ env.PROJECT_ID }}"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          gcloud dataflow jobs list \
-            --region="${{ env.REGION }}" \
-            --project="${{ env.PROJECT_ID }}" \
-            --filter="name:${{ env.JOB_NAME }}" \
-            --format="table(id, name, currentState, startTime)"
+          echo "✅ Image successfully pushed:"
+          echo "   → $IMAGE"
+          echo "   → $LATEST"
