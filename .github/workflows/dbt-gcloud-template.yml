@@ -210,7 +210,7 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "  Job Name        : dbt-run-job"
           echo "  Image           : $IMAGE"
-          echo "  Service Account : ${{ secrets.DBT_SERVICE_ACCOUNT }}"
+          echo "  Service Account : ${{ env.DBT_SERVICE_ACCOUNT }}"
           echo "  Memory          : 2Gi"
           echo "  CPU             : 2"
           echo "  Task Timeout    : 30m"
@@ -228,6 +228,7 @@ jobs:
               --region="${{ env.REGION }}" \
               --project="${{ env.PROJECT_ID }}" \
               --service-account="${{ env.DBT_SERVICE_ACCOUNT }}" \
+              --clear-secrets \
               --memory=2Gi \
               --cpu=2 \
               --task-timeout=30m \
@@ -241,6 +242,7 @@ jobs:
               --region="${{ env.REGION }}" \
               --project="${{ env.PROJECT_ID }}" \
               --service-account="${{ env.DBT_SERVICE_ACCOUNT }}" \
+              --clear-secrets \
               --memory=2Gi \
               --cpu=2 \
               --task-timeout=30m \
