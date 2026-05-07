@@ -227,7 +227,6 @@ jobs:
               --image="$IMAGE" \
               --region="${{ env.REGION }}" \
               --project="${{ env.PROJECT_ID }}" \
-              --service-account="${{ secrets.DBT_SERVICE_ACCOUNT }}" \
               --memory=2Gi \
               --cpu=2 \
               --task-timeout=30m \
@@ -240,7 +239,6 @@ jobs:
               --image="$IMAGE" \
               --region="${{ env.REGION }}" \
               --project="${{ env.PROJECT_ID }}" \
-              --service-account="${{ secrets.DBT_SERVICE_ACCOUNT }}" \
               --memory=2Gi \
               --cpu=2 \
               --task-timeout=30m \
