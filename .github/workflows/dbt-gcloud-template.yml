@@ -76,7 +76,7 @@ jobs:
                 status.latestReadyRevisionName,
                 status.url
               )" 2>/dev/null \
-          || echo "  ⚠️  Service '${{ env.CLOUD_RUN_SERVICE }}' not found — will be created fresh."
+          || echo "    Service '${{ env.CLOUD_RUN_SERVICE }}' not found — will be created fresh."
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Job 2 │ Approval Gate
@@ -222,7 +222,7 @@ jobs:
               --project="${{ env.PROJECT_ID }}" \
               --quiet 2>/dev/null; then
  
-            echo "🔄 Job exists — updating with latest image..."
+            echo "Job exists — updating with latest image..."
             gcloud run jobs update dbt-run-job \
               --image="$IMAGE" \
               --region="${{ env.REGION }}" \
@@ -235,7 +235,7 @@ jobs:
  
           else
  
-            echo "🆕 Job not found — creating with latest image..."
+            echo " Job not found — creating with latest image..."
             gcloud run jobs create dbt-run-job \
               --image="$IMAGE" \
               --region="${{ env.REGION }}" \
@@ -248,7 +248,7 @@ jobs:
  
           fi
  
-          echo "✅ Cloud Run Job deployed with image: $IMAGE"
+          echo "Cloud Run Job deployed with image: $IMAGE"
 
       - name: Confirm Cloud Run Job Deployment
         run: |
