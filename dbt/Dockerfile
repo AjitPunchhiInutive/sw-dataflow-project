@@ -70,4 +70,4 @@ RUN dbt deps --profiles-dir .
 # The entrypoint script is the single entry point for all container executions.
 # Cloud Run Job executes this script on startup. Composer can override the
 # default args to run specific dbt commands (run, test, build, etc.).
-ENTRYPOINT ["./dbt/entrypoint.sh"]
+ENTRYPOINT ["/entrypoint.sh"]
