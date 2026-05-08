@@ -37,7 +37,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DBT_LOG_PATH=/dbt/logs \
     DBT_PROFILES_DIR=/dbt
 
-RUN apk add --no-cache ca-certificates
+# bash is required — entrypoint.sh uses #!/bin/bash
+# without this the container exits immediately with "Application failed to start"
+RUN apk add --no-cache \
+        ca-certificates \
+        bash
 
 # Create non-root user BEFORE setting permissions
 RUN adduser -D -H -s /sbin/nologin dbt
@@ -48,7 +52,6 @@ COPY --from=builder /install /usr/local
 COPY --chown=dbt:dbt --from=builder /dbt /dbt
 
 # Create all directories dbt needs to write to at runtime
-# and give ownership to dbt user — must be done as root BEFORE USER switch
 RUN mkdir -p \
         /dbt/logs \
         /dbt/target \
