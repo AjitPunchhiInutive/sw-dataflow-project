@@ -9,7 +9,8 @@ RUN apk add --no-cache \
         gcc \
         musl-dev \
         libffi-dev \
-        ca-certificates
+        ca-certificates \
+        bash
 
 RUN pip install --no-cache-dir --prefix=/install \
     dbt-core==1.9.1 \
