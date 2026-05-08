@@ -19,7 +19,8 @@
 # =============================================================================
 
 # Base image: official Python 3.11 slim — small footprint, no unnecessary tools
-FROM gcr.io/dataflow-templates-base/python311-template-launcher-base:20260122-rc00
+# FROM gcr.io/dataflow-templates-base/python311-template-launcher-base:20260122-rc00
+FROM gcr.io/distroless/python3-debian12:debug-nonroot-017ef962377038340faff5ef45c1302e1f09fbc6
 
 # Prevent Python from writing .pyc files (keeps image clean)
 # Ensure stdout/stderr are unbuffered so logs appear immediately in Cloud Run
