@@ -76,11 +76,18 @@ customer_orders as (
         -- Derived segment — uses total_orders count computed in this same SELECT.
         -- BigQuery allows referencing aggregates in CASE within the same SELECT level.
         case
-            when count(o.order_id) = 0              then 'no_orders_2'
-            when count(o.order_id) = 1              then 'new_2'
-            when count(o.order_id) between 2 and 5  then 'active_2'
-            else                                         'loyal_2'
-        end as customer_segment
+            when count(o.order_id) = 0              then 'no_orders'
+            when count(o.order_id) = 1              then 'new'
+            when count(o.order_id) between 2 and 5  then 'active'
+            else                                         'loyal'
+        end as customer_segment,
+
+        case
+            when coalesce(sum(o.order_amount), 0) = 0   then 'no_spend'
+            when coalesce(sum(o.order_amount), 0) < 200 then 'low'
+            when coalesce(sum(o.order_amount), 0) < 500 then 'medium'
+            else                                              'high'
+        end as value_band
 
     from customers c
 

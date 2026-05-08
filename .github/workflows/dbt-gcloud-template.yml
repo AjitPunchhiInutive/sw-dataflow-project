@@ -9,12 +9,12 @@ on:
   workflow_dispatch:
 
 env:
-  REGION:            us-east4
-  PROJECT_ID:        sw-dev-prj-sandbox
-  REPOSITORY:        dbt-template
-  IMAGE_NAME:        dbt-docker-image
-  CLOUD_RUN_SERVICE: dbt-cloud-run-service
-  DBT_SERVICE_ACCOUNT: dataflow-runner@sw-dev-prj-sandbox.iam.gserviceaccount.com
+  REGION:               us-east4
+  PROJECT_ID:           sw-dev-prj-sandbox
+  REPOSITORY:           dbt-template
+  IMAGE_NAME:           dbt-docker-image
+  CLOUD_RUN_SERVICE:    dbt-cloud-run-service
+  DBT_SERVICE_ACCOUNT:  dataflow-runner@sw-dev-prj-sandbox.iam.gserviceaccount.com
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Job 1 │ Plan

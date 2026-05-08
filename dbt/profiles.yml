@@ -1,65 +1,72 @@
 # =============================================================================
 # profiles.yml — dbt Connection Profile for BigQuery
 # =============================================================================
-# PURPOSE:
-#   Tells dbt HOW to connect to BigQuery. Contains two output targets:
-#   - dev  : for local development, reads SA key from an env variable
-#   - prod : for Cloud Run execution, reads SA key from a Secret Manager mount
+# KEYLESS AUTH (method: oauth):
+#   No SA key file needed. dbt uses Application Default Credentials (ADC).
 #
-# HOW dbt USES THIS FILE:
-#   dbt reads profiles.yml at runtime using --profiles-dir /dbt (set in entrypoint.sh)
-#   It selects the target based on --target prod/dev passed in the command.
+#   How it works per environment:
+#   - Cloud Run (dev/uat/prod):
+#       Job runs AS dbt-bigquery-sa service account.
+#       GCP metadata server automatically provides OAuth tokens.
+#       No key, no Secret Manager mount required.
+#   - Local development:
+#       Run: gcloud auth application-default login
+#       dbt uses your user credentials via ADC.
+#       OR run: gcloud auth application-default login --impersonate-service-account=dbt-bigquery-sa@...
+#       to impersonate the SA locally (matches Cloud Run behaviour exactly).
 #
-# DATASET NAMING BEHAVIOUR (important):
-#   The 'dataset: raw' here is the DEFAULT dataset / schema prefix.
-#   dbt BigQuery generates output dataset names as:
-#     {dataset}_{custom_schema}  →  raw + eds = raw_eds,  raw + ods = raw_ods
-#   The custom_schema comes from +schema config in dbt_project.yml.
-#   This is why BigQuery shows datasets named raw_eds and raw_ods (not eds/ods).
+# ENVIRONMENT VARIABLES (set by Cloud Run Job via deploy_cloudrun.sh):
+#   GCP_PROJECT_ID      → GCP project (from configs/ENV.yml → project_id)
+#   DBT_DATASET_PREFIX  → dataset prefix (from configs/ENV.yml → dataset_prefix)
+#   BQ_LOCATION         → BigQuery location (from configs/ENV.yml → bq_location)
+#   DBT_TARGET          → which target to activate (from configs/ENV.yml → dbt_target)
 #
-# SECRET MANAGER INTEGRATION (prod target):
-#   Cloud Run mounts the 'dbt-sa-key' secret from Secret Manager at /secrets/sa-key.json
-#   This is configured in deploy_cloudrun.sh via --set-secrets flag.
-#   The SA key JSON gives dbt permission to query/write BigQuery on behalf of
-#   the dbt-bigquery-sa service account.
+# DATASET NAMING:
+#   dbt BigQuery generates output datasets as: {dataset_prefix}_{schema}
+#   dev:  raw_dev + eds = raw_dev_eds,  raw_dev + ods = raw_dev_ods
+#   uat:  raw_uat + eds = raw_uat_eds,  raw_uat + ods = raw_uat_ods
+#   prod: raw     + eds = raw_eds,      raw     + ods = raw_ods
 # =============================================================================
 
 dbt_gcp_poc:
-  target: dev  # default target — overridden to 'prod' by entrypoint.sh at runtime
+  # Active target is set at runtime via DBT_TARGET env var.
+  # entrypoint.sh passes --target $DBT_TARGET to every dbt command.
+  target: dev
 
   outputs:
 
-    # ── Local Development Target ─────────────────────────────────────────────
-    # Used when running dbt locally for development and testing.
-    # Reads the SA key path from an environment variable so the key is never
-    # hardcoded and different developers can point to their own key files.
+    # ── Development ───────────────────────────────────────────────────────────
     dev:
       type: bigquery
-      method: service-account          # authenticate using a SA JSON key file
-      project: southwire-poc           # GCP project where BigQuery datasets live
-      dataset: raw                     # default dataset prefix (outputs become raw_eds, raw_ods)
-      location: us-east4               # BQ dataset location — must match where datasets were created
-      threads: 4                       # number of parallel model execution threads
-      keyfile: "{{ env_var('DBT_SA_KEY_PATH') }}"  # path injected via environment variable
-      timeout_seconds: 300             # BQ query timeout
-      priority: interactive            # BQ job priority: interactive (fast) vs batch (queued)
-      retries: 1                       # retry failed BQ API calls once before failing
+      method: oauth                                          # keyless — uses ADC
+      project: "{{ env_var('GCP_PROJECT_ID') }}"            # injected by Cloud Run / local gcloud
+      dataset: "{{ env_var('DBT_DATASET_PREFIX', 'raw_dev') }}"  # raw_dev → raw_dev_eds, raw_dev_ods
+      location: "{{ env_var('BQ_LOCATION', 'us-east4') }}"
+      threads: 4
+      timeout_seconds: 300
+      priority: interactive
+      retries: 1
 
-    # ── Production Target (Cloud Run) ────────────────────────────────────────
-    # Used when the container runs inside Cloud Run Job.
-    # The SA key is NOT stored in this file or in the image. Instead:
-    # 1. Secret Manager holds the key as secret 'dbt-sa-key'
-    # 2. Cloud Run mounts it at /secrets/sa-key.json at container startup
-    # 3. dbt reads it from this hardcoded path at runtime
-    # This means the key is only in memory during execution — never on disk permanently.
+    # ── UAT ───────────────────────────────────────────────────────────────────
+    uat:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT_ID') }}"
+      dataset: "{{ env_var('DBT_DATASET_PREFIX', 'raw_uat') }}"  # raw_uat → raw_uat_eds, raw_uat_ods
+      location: "{{ env_var('BQ_LOCATION', 'us-east4') }}"
+      threads: 4
+      timeout_seconds: 300
+      priority: interactive
+      retries: 1
+
+    # ── Production ────────────────────────────────────────────────────────────
     prod:
       type: bigquery
-      method: service-account
-      project: southwire-poc
-      dataset: raw                     # prefix — models write to raw_eds and raw_ods
-      location: us-east4
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT_ID') }}"
+      dataset: "{{ env_var('DBT_DATASET_PREFIX', 'raw') }}"  # raw → raw_eds, raw_ods
+      location: "{{ env_var('BQ_LOCATION', 'us-east4') }}"
       threads: 4
-      keyfile: /secrets/sa-key.json    # mounted at runtime by Cloud Run from Secret Manager
       timeout_seconds: 300
       priority: interactive
       retries: 1

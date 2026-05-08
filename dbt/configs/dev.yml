@@ -1,0 +1,27 @@
+# =============================================================================
+# configs/dev.yml — Development Environment Configuration
+# =============================================================================
+# All environment-specific values for the dev environment live here.
+# Scripts (build_and_push.sh, deploy_cloudrun.sh) read this file when
+# called with ENV=dev. No values are hardcoded in scripts or code.
+#
+# DATASET STRATEGY (same GCP project, isolated per environment):
+#   dataset_prefix: raw_dev
+#   dbt output datasets: raw_dev_eds (views), raw_dev_ods (tables)
+#   Source data:         raw.raw_orders, raw.raw_customers (shared)
+# =============================================================================
+
+project_id: sw-dev-prj-sandbox
+region: us-east4
+bq_location: us-east4
+
+environment: dev
+dbt_target: dev
+dataset_prefix: raw_dev
+
+job_name: dbt-run-job
+ar_repo: dbt-docker-image
+image_name: dbt-docker-image
+
+service_account: dataflow-runner@sw-dev-prj-sandbox.iam.gserviceaccount.com
+composer_env: dbt-poc-composer

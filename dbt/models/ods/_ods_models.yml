@@ -48,6 +48,11 @@ models:
         tests:
           - not_null
           - accepted_values:
-              # These four values are the only valid outputs of the CASE statement
-              # in ods_customer_orders.sql. Any other value means the logic broke.
               values: ['no_orders', 'new', 'active', 'loyal']
+
+      - name: value_band
+        description: "Spend-based tier derived from lifetime_value: no_spend / low / medium / high"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['no_spend', 'low', 'medium', 'high']
