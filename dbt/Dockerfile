@@ -4,10 +4,6 @@ FROM python:3.11-alpine AS builder
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# Alpine uses apk — NOT apt-get
-# git        : required by dbt deps to resolve git-based package refs
-# gcc/musl   : required to compile some Python C-extension packages
-# libffi-dev : required by some dbt dependencies
 RUN apk add --no-cache \
         git \
         gcc \
@@ -15,12 +11,10 @@ RUN apk add --no-cache \
         libffi-dev \
         ca-certificates
 
-# Install dbt and BigQuery adapter into an isolated prefix
 RUN pip install --no-cache-dir --prefix=/install \
     dbt-core==1.9.1 \
     dbt-bigquery==1.9.0
 
-# Copy dbt project files
 WORKDIR /dbt
 COPY dbt_project.yml .
 COPY profiles.yml    .
@@ -31,7 +25,6 @@ COPY tests/          tests/
 COPY seeds/          seeds/
 COPY snapshots/      snapshots/
 
-# Bake dbt packages into image at build time
 RUN PYTHONPATH=/install/lib/python3.11/site-packages \
     /install/bin/dbt deps --profiles-dir .
 
@@ -39,22 +32,40 @@ RUN PYTHONPATH=/install/lib/python3.11/site-packages \
 FROM python:3.11-alpine AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    DBT_LOG_PATH=/dbt/logs \
+    DBT_PROFILES_DIR=/dbt
 
-RUN apk add --no-cache \
-        ca-certificates \
-        bash        # ← add this ONLY if your entrypoint.sh uses #!/bin/bash
+RUN apk add --no-cache ca-certificates
+
+# Create non-root user BEFORE setting permissions
+RUN adduser -D -H -s /sbin/nologin dbt
 
 COPY --from=builder /install /usr/local
-COPY --from=builder /dbt /dbt
+
+# Copy dbt project owned by dbt user from the start
+COPY --chown=dbt:dbt --from=builder /dbt /dbt
+
+# Create all directories dbt needs to write to at runtime
+# and give ownership to dbt user — must be done as root BEFORE USER switch
+RUN mkdir -p \
+        /dbt/logs \
+        /dbt/target \
+        /dbt/dbt_packages \
+    && chown -R dbt:dbt \
+        /dbt/logs \
+        /dbt/target \
+        /dbt/dbt_packages \
+    && chmod -R 755 \
+        /dbt/logs \
+        /dbt/target \
+        /dbt/dbt_packages
 
 COPY entrypoint.sh /entrypoint.sh
-
-# Strip Windows line endings + make executable
 RUN sed -i 's/\r//' /entrypoint.sh && \
     chmod +x /entrypoint.sh
 
-RUN adduser -D -H -s /sbin/nologin dbt
+# Drop to non-root AFTER all permission setup is done
 USER dbt
 
 WORKDIR /dbt
