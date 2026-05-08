@@ -1,26 +1,26 @@
 # ── Stage 1: Builder ──────────────────────────────────────────────────────────
-# Full slim image — has apt-get, pip, shell. Used ONLY to install dependencies.
-# Nothing from this stage reaches production except the installed packages.
 FROM python:3.11-alpine AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# Install git (required by dbt deps to resolve git-based package refs)
-RUN apt-get update -y && \
-    apt-get install -y --no-install-recommends \
+# Alpine uses apk — NOT apt-get
+# git        : required by dbt deps to resolve git-based package refs
+# gcc/musl   : required to compile some Python C-extension packages
+# libffi-dev : required by some dbt dependencies
+RUN apk add --no-cache \
         git \
-        ca-certificates \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+        gcc \
+        musl-dev \
+        libffi-dev \
+        ca-certificates
 
 # Install dbt and BigQuery adapter into an isolated prefix
-# so we can copy them cleanly into the runtime stage
 RUN pip install --no-cache-dir --prefix=/install \
     dbt-core==1.9.1 \
     dbt-bigquery==1.9.0
 
-# Copy dbt project files for dbt deps
+# Copy dbt project files
 WORKDIR /dbt
 COPY dbt_project.yml .
 COPY profiles.yml    .
@@ -31,30 +31,31 @@ COPY tests/          tests/
 COPY seeds/          seeds/
 COPY snapshots/      snapshots/
 
-# Bake dbt packages into the image at build time — container needs no internet at runtime
+# Bake dbt packages into image at build time
 RUN PYTHONPATH=/install/lib/python3.11/site-packages \
     /install/bin/dbt deps --profiles-dir .
 
 # ── Stage 2: Runtime ──────────────────────────────────────────────────────────
-# Clean slim image — no build tools, no apt cache, no git, fewer CVEs.
-# Only carries what's needed to actually run dbt.
 FROM python:3.11-alpine AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
+# Runtime only needs ca-certificates — no git, no gcc, no build tools
+RUN apk add --no-cache ca-certificates
+
 # Copy installed Python packages from builder
 COPY --from=builder /install /usr/local
 
-# Copy pre-built dbt project (including dbt_packages from dbt deps)
+# Copy pre-built dbt project (includes dbt_packages/ from dbt deps)
 COPY --from=builder /dbt /dbt
 
 # Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Run as non-root user — security best practice for Cloud Run
-RUN useradd --no-create-home --shell /bin/false dbt
+# Non-root user — Alpine uses adduser syntax
+RUN adduser -D -H -s /sbin/nologin dbt
 USER dbt
 
 WORKDIR /dbt
