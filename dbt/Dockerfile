@@ -41,20 +41,19 @@ FROM python:3.11-alpine AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# Runtime only needs ca-certificates — no git, no gcc, no build tools
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache \
+        ca-certificates \
+        bash        # ← add this ONLY if your entrypoint.sh uses #!/bin/bash
 
-# Copy installed Python packages from builder
 COPY --from=builder /install /usr/local
-
-# Copy pre-built dbt project (includes dbt_packages/ from dbt deps)
 COPY --from=builder /dbt /dbt
 
-# Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
 
-# Non-root user — Alpine uses adduser syntax
+# Strip Windows line endings + make executable
+RUN sed -i 's/\r//' /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
 RUN adduser -D -H -s /sbin/nologin dbt
 USER dbt
 
