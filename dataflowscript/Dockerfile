@@ -1,13 +1,23 @@
-# Use the original pinned tag from your working Dockerfile.
-# This is the Google-provided base that ships with the Flex Template launcher
-# binary at /opt/google/dataflow/python_template_launcher
-FROM gcr.io/dataflow-templates-base/python311-template-launcher-base:20260122-rc00
+# ── Stage 1: Extract launcher binary only ────────────────────────────────────
+# Use the Dataflow base image solely to get the launcher binary.
+# Nothing else from this stage reaches the final image.
+FROM gcr.io/dataflow-templates-base/python311-template-launcher-base:20260122-rc00 AS launcher
 
-# ── Install Java + curl ───────────────────────────────────────────────────────
+# ── Stage 2: Clean runtime ────────────────────────────────────────────────────
+# apache/beam_python3.11_sdk is actively maintained by the Apache Beam team,
+# regularly patched, and purpose-built for Dataflow workloads.
+# Significantly fewer CVEs than the full Dataflow base image.
+FROM apache/beam_python3.11_sdk:2.62.0
+
+# ── Copy ONLY the launcher binary from the Dataflow base ─────────────────────
+# This is the only file needed from gcr.io/dataflow-templates-base
+COPY --from=launcher /opt/google/dataflow/python_template_launcher \
+                     /opt/google/dataflow/python_template_launcher
+
+# ── Install Java (required by Dataflow template launcher) ─────────────────────
 RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends \
         default-jre-headless \
-        curl \
         ca-certificates && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
@@ -22,7 +32,6 @@ RUN groupadd --gid 1001 appgroup && \
 
 # ── Set template env vars ─────────────────────────────────────────────────────
 ENV FLEX_TEMPLATE_PYTHON_PY_FILE="/template/oden_pubsub_to_gcs.py"
-#ENV FLEX_TEMPLATE_PYTHON_REQUIREMENTS_FILE="/template/requirements.txt"
 
 # ── Copy files with restricted ownership ─────────────────────────────────────
 COPY --chown=appuser:appgroup requirements.txt       /template/requirements.txt
@@ -34,6 +43,7 @@ RUN chmod 550 /template && \
               /template/oden_pubsub_to_gcs.py
 
 # ── Install Python dependencies ───────────────────────────────────────────────
+# apache-beam and pyarrow prebuilt wheels are available on this Debian/glibc image
 RUN pip install --no-cache-dir \
         --root-user-action=ignore \
         -r /template/requirements.txt && \
