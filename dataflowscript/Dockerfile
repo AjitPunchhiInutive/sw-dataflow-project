@@ -1,4 +1,4 @@
-FROM gcr.io/dataflow-templates-base/python311-template-launcher-base:20260122-rc00
+FROM python:3.11-alpine
 
 # ── Install Java ──────────────────────────────────────────────────────────────
 RUN apt-get update -qq && \
