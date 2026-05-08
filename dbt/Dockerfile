@@ -1,7 +1,7 @@
 # ── Stage 1: Builder ──────────────────────────────────────────────────────────
 # Full slim image — has apt-get, pip, shell. Used ONLY to install dependencies.
 # Nothing from this stage reaches production except the installed packages.
-FROM python:3.11-slim AS builder
+FROM python:3.11-alpine AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
@@ -38,7 +38,7 @@ RUN PYTHONPATH=/install/lib/python3.11/site-packages \
 # ── Stage 2: Runtime ──────────────────────────────────────────────────────────
 # Clean slim image — no build tools, no apt cache, no git, fewer CVEs.
 # Only carries what's needed to actually run dbt.
-FROM python:3.11-slim AS runtime
+FROM python:3.11-alpine AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
