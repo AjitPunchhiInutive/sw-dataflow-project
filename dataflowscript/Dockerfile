@@ -1,22 +1,23 @@
-FROM python:3.11-alpine
+# python:3.11-slim is Debian-based (glibc) — apache-beam and pyarrow have
+# prebuilt wheels for glibc. Alpine (musl libc) has no prebuilt wheels and
+# source compilation fails. Never use Alpine for Beam/Arrow workloads.
+FROM python:3.11-slim
 
 # ── Install Java + curl ───────────────────────────────────────────────────────
-# Alpine uses apk — NOT apt-get
-# openjdk17-jre-headless : lightweight JRE for Dataflow template launcher
-# curl                   : used by Dataflow health/metadata endpoints
-RUN apk add --no-cache \
-        openjdk17-jre-headless \
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends \
+        default-jre-headless \
         curl \
-        ca-certificates
+        ca-certificates && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # ── Create non-root user and group ───────────────────────────────────────────
-# Alpine uses addgroup/adduser — NOT groupadd/useradd
-RUN addgroup --gid 1001 appgroup && \
-    adduser  --uid 1001 \
-             --ingroup appgroup \
+RUN groupadd --gid 1001 appgroup && \
+    useradd  --uid 1001 \
+             --gid appgroup \
              --no-create-home \
              --shell /sbin/nologin \
-             --disabled-password \
              appuser
 
 # ── Set template env vars ─────────────────────────────────────────────────────
@@ -33,6 +34,8 @@ RUN chmod 550 /template && \
               /template/oden_pubsub_to_gcs.py
 
 # ── Install Python dependencies ───────────────────────────────────────────────
+# apache-beam and pyarrow require glibc prebuilt wheels — only available on
+# Debian/Ubuntu based images, not Alpine (musl libc)
 RUN pip install --no-cache-dir \
         --root-user-action=ignore \
         -r /template/requirements.txt && \
