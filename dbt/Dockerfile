@@ -1,74 +1,62 @@
-# =============================================================================
-# Dockerfile — dbt BigQuery Cloud Run Image
-# =============================================================================
-# PURPOSE:
-#   Packages the dbt project into a self-contained Docker image that Cloud Run
-#   executes as a Job. Every dbt dependency, project file, and the entrypoint
-#   script are baked in at build time so the container needs no internet access
-#   at runtime except to reach BigQuery.
-#
-# WHERE THIS RUNS:
-#   - Built locally (or in CI) with: docker buildx build --platform linux/amd64
-#   - Pushed to Google Artifact Registry
-#   - Pulled and executed by Cloud Run Job on demand
-#
-# WHAT GETS INSTALLED HERE (build time, not runtime):
-#   - dbt-core      : dbt CLI and framework
-#   - dbt-bigquery  : BigQuery adapter — translates dbt SQL to BQ API calls
-#   - dbt_utils     : installed via `dbt deps` from packages.yml
-# =============================================================================
+# ── Stage 1: Builder ──────────────────────────────────────────────────────────
+# Full slim image — has apt-get, pip, shell. Used ONLY to install dependencies.
+# Nothing from this stage reaches production except the installed packages.
+FROM python:3.11-slim AS builder
 
-# Base image: official Python 3.11 slim — small footprint, no unnecessary tools
-# FROM gcr.io/dataflow-templates-base/python311-template-launcher-base:20260122-rc00
-FROM gcr.io/distroless/python3-debian12:debug-nonroot-017ef962377038340faff5ef45c1302e1f09fbc6
-
-# Prevent Python from writing .pyc files (keeps image clean)
-# Ensure stdout/stderr are unbuffered so logs appear immediately in Cloud Run
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# git is required by dbt during `dbt deps` to resolve package versions from git refs
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends git && \
-    rm -rf /var/lib/apt/lists/*
+# Install git (required by dbt deps to resolve git-based package refs)
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends \
+        git \
+        ca-certificates \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install dbt and the BigQuery adapter.
-# dbt-core     : the dbt CLI — parses models, builds DAGs, runs tests
-# dbt-bigquery : adapter that connects dbt to BigQuery via the BQ Python SDK
-# Pinned to exact versions so builds are reproducible across environments.
-RUN pip install --no-cache-dir \
+# Install dbt and BigQuery adapter into an isolated prefix
+# so we can copy them cleanly into the runtime stage
+RUN pip install --no-cache-dir --prefix=/install \
     dbt-core==1.9.1 \
     dbt-bigquery==1.9.0
 
-# All dbt project files are placed under /dbt inside the container.
-# profiles.yml and dbt_project.yml must be in the same directory for
-# the --profiles-dir /dbt flag in entrypoint.sh to resolve correctly.
+# Copy dbt project files for dbt deps
 WORKDIR /dbt
-
-# Copy dbt project configuration and all model/macro/test directories.
-# Each COPY is a separate layer — changes to models don't invalidate
-# the pip install layer above, keeping rebuilds fast.
 COPY dbt_project.yml .
-COPY profiles.yml .
-COPY packages.yml .
-COPY models/     models/
-COPY macros/     macros/
-COPY tests/      tests/
-COPY seeds/      seeds/
-COPY snapshots/  snapshots/
+COPY profiles.yml    .
+COPY packages.yml    .
+COPY models/         models/
+COPY macros/         macros/
+COPY tests/          tests/
+COPY seeds/          seeds/
+COPY snapshots/      snapshots/
 
-# Copy the entrypoint script that decides what dbt command to run.
-# Placed at /entrypoint.sh (outside /dbt) to keep it separate from dbt project files.
+# Bake dbt packages into the image at build time — container needs no internet at runtime
+RUN PYTHONPATH=/install/lib/python3.11/site-packages \
+    /install/bin/dbt deps --profiles-dir .
+
+# ── Stage 2: Runtime ──────────────────────────────────────────────────────────
+# Clean slim image — no build tools, no apt cache, no git, fewer CVEs.
+# Only carries what's needed to actually run dbt.
+FROM python:3.11-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Copy installed Python packages from builder
+COPY --from=builder /install /usr/local
+
+# Copy pre-built dbt project (including dbt_packages from dbt deps)
+COPY --from=builder /dbt /dbt
+
+# Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Install dbt packages declared in packages.yml (e.g. dbt_utils).
-# This runs at BUILD time so packages are baked into the image — the container
-# does not need to download anything when it starts in Cloud Run.
-# --profiles-dir . tells dbt where profiles.yml is during this build step.
-RUN dbt deps --profiles-dir .
+# Run as non-root user — security best practice for Cloud Run
+RUN useradd --no-create-home --shell /bin/false dbt
+USER dbt
 
-# The entrypoint script is the single entry point for all container executions.
-# Cloud Run Job executes this script on startup. Composer can override the
-# default args to run specific dbt commands (run, test, build, etc.).
+WORKDIR /dbt
+
 ENTRYPOINT ["/entrypoint.sh"]
