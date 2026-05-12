@@ -27,3 +27,7 @@ variable "log_project_id" {
   description = "Log Project ID"
   type = string 
 }
+variable "test_project_id" {
+  description = "Log Project ID"
+  type = string 
+}
