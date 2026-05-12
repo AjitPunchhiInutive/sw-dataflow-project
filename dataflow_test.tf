@@ -17,7 +17,7 @@ resource "google_storage_bucket_object" "myfiles" {
   content_type = "application/x-directory"
 }
 
-module "bigquery-dataset" {
+module "bigquery-dataset-test" {
   source = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//bigquery-dataset?ref=main"
 
   project_id    = var.test_project_id
@@ -82,7 +82,7 @@ module "bigquery-dataset" {
     }
   }
 }
-module "docker_artifact_registry"{
+module "docker_artifact_registry_test"{
   source     = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//artifact-registry?ref=main"
   project_id = var.test_project_id
   location   = "us-east4"
