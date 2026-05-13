@@ -9,12 +9,7 @@ on:
   workflow_dispatch:
 
 env:
-  REGION:               us-east4
-  PROJECT_ID:           sw-dev-prj-sandbox
-  REPOSITORY:           dbt-template
-  IMAGE_NAME:           dbt-docker-image
-  CLOUD_RUN_SERVICE:    dbt-cloud-run-service
-  DBT_SERVICE_ACCOUNT:  dataflow-runner@sw-dev-prj-sandbox.iam.gserviceaccount.com
+  CONFIG_FILE: ./dbt/config/dev.yml   # ← single source of truth
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Job 1 │ Plan
@@ -34,6 +29,26 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Load Config
+        run: |
+          CONFIG=${{ env.CONFIG_FILE }}
+          echo "PROJECT_ID=$(yq e '.project_id'       $CONFIG)" >> $GITHUB_ENV
+          echo "REGION=$(yq e '.region'               $CONFIG)" >> $GITHUB_ENV
+          echo "BQ_LOCATION=$(yq e '.bq_location'     $CONFIG)" >> $GITHUB_ENV
+          echo "ENVIRONMENT=$(yq e '.environment'     $CONFIG)" >> $GITHUB_ENV
+          echo "DBT_TARGET=$(yq e '.dbt_target'       $CONFIG)" >> $GITHUB_ENV
+          echo "DATASET_PREFIX=$(yq e '.dataset_prefix' $CONFIG)" >> $GITHUB_ENV
+          echo "JOB_NAME=$(yq e '.job_name'           $CONFIG)" >> $GITHUB_ENV
+          echo "REPOSITORY=$(yq e '.ar_repo'          $CONFIG)" >> $GITHUB_ENV
+          echo "IMAGE_NAME=$(yq e '.image_name'       $CONFIG)" >> $GITHUB_ENV
+          echo "SERVICE_ACCOUNT=$(yq e '.service_account' $CONFIG)" >> $GITHUB_ENV
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
@@ -51,32 +66,37 @@ jobs:
           IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.run_id }}"
 
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  DBT Cloud Run Deployment Plan"
+          echo "  DBT Cloud Run Job Deployment Plan"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "  Project           : ${{ env.PROJECT_ID }}"
           echo "  Region            : ${{ env.REGION }}"
           echo "  Artifact Registry : ${{ env.REPOSITORY }}"
           echo "  Image             : $IMAGE"
           echo "  Dockerfile        : ./dbt/Dockerfile"
-          echo "  Cloud Run Service : ${{ env.CLOUD_RUN_SERVICE }}"
+          echo "  Cloud Run Job     : ${{ env.JOB_NAME }}"
+          echo "  Service Account   : ${{ env.SERVICE_ACCOUNT }}"
+          echo "  Environment       : ${{ env.ENVIRONMENT }}"
+          echo "  DBT Target        : ${{ env.DBT_TARGET }}"
+          echo "  Dataset Prefix    : ${{ env.DATASET_PREFIX }}"
+          echo "  BQ Location       : ${{ env.BQ_LOCATION }}"
           echo "  Triggered By      : ${{ github.actor }}"
           echo "  Run ID            : ${{ github.run_id }}"
           echo "  Branch            : ${{ github.head_ref || github.ref_name }}"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-      - name: Preview Existing Cloud Run Revision
+      - name: Preview Existing Cloud Run Job
         run: |
-          echo "Current Cloud Run Service Status:"
-          gcloud run services describe ${{ env.CLOUD_RUN_SERVICE }} \
+          echo "Current Cloud Run Job Status:"
+          gcloud run jobs describe "${{ env.JOB_NAME }}" \
             --region="${{ env.REGION }}" \
             --project="${{ env.PROJECT_ID }}" \
             --format="table(
                 metadata.name,
-                status.latestCreatedRevisionName,
-                status.latestReadyRevisionName,
-                status.url
+                spec.template.spec.template.spec.containers[0].image,
+                spec.template.spec.template.spec.serviceAccountName,
+                metadata.creationTimestamp
               )" 2>/dev/null \
-          || echo "  ⚠️  Service '${{ env.CLOUD_RUN_SERVICE }}' not found — will be created fresh."
+          || echo "  ⚠️  Job '${{ env.JOB_NAME }}' not found — will be created fresh."
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Job 2 │ Approval Gate
@@ -88,7 +108,7 @@ jobs:
     permissions:
       contents: read
     environment:
-      name: dataflow-approval                       # ← create this environment in repo Settings → Environments
+      name: dbt-approval
       url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
     steps:
@@ -97,7 +117,7 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "  Review the plan above and approve to continue"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "   Approval granted — proceeding to build"
+          echo "  ✅ Approval granted — proceeding to build"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Job 3 │ Build & Push Docker Image
@@ -109,9 +129,10 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      security-events: write
 
     outputs:
-      image: ${{ steps.set-image.outputs.image }}   # passes the image URI to the deploy job
+      image: ${{ steps.set-image.outputs.image }}
 
     steps:
       - name: Checkout Code
@@ -130,6 +151,20 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
         with:
           version: 'latest'
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Load Config
+        run: |
+          CONFIG=${{ env.CONFIG_FILE }}
+          echo "PROJECT_ID=$(yq e '.project_id'           $CONFIG)" >> $GITHUB_ENV
+          echo "REGION=$(yq e '.region'                   $CONFIG)" >> $GITHUB_ENV
+          echo "REPOSITORY=$(yq e '.ar_repo'              $CONFIG)" >> $GITHUB_ENV
+          echo "IMAGE_NAME=$(yq e '.image_name'           $CONFIG)" >> $GITHUB_ENV
 
       - name: Configure Docker for Artifact Registry
         run: |
@@ -151,7 +186,6 @@ jobs:
           echo "  Source : ./dbt/Dockerfile"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-          echo "Building Docker image..."
           docker build \
             --no-cache \
             --tag "$IMAGE" \
@@ -159,21 +193,14 @@ jobs:
             --file "./dbt/Dockerfile" \
             ./dbt
 
-          echo "Pushing image with run_id tag..."
           docker push "$IMAGE"
-
-          echo "Pushing image with latest tag..."
           docker push "$LATEST"
 
-          echo "Image successfully pushed:"
-          echo "   → $IMAGE"
-          echo "   → $LATEST"
-
-          # Export image URI for the deploy job
+          echo "✅ Image pushed: $IMAGE"
+          echo "✅ Image pushed: $LATEST"
           echo "image=$IMAGE" >> $GITHUB_OUTPUT
-      
-           # ── Trivy Scan ─────────────────────────────────────────────────────────
-           
+
+      # ── Trivy Scan ──────────────────────────────────────────────────────────
       - name: Install Trivy
         run: |
           sudo apt-get update -y
@@ -184,24 +211,23 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y trivy
           trivy --version
- 
+
       - name: Scan Image with Trivy (Table - Console Output)
         run: |
           IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.run_id }}"
- 
+
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "  Trivy Security Scan"
           echo "  Image : $IMAGE"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
- 
+
           trivy image \
             --exit-code 0 \
-            --severity LOW,MEDIUM,HIGH,CRITICAL \
+            --ignore-unfixed \
+            --severity HIGH,CRITICAL \
             --format table \
             "$IMAGE"
-          # exit-code 0  → pipeline continues even if vulnerabilities found
-          # exit-code 1  → pipeline BLOCKS on any finding at specified severity
- 
+
       - name: Scan Image with Trivy (SARIF - GitHub Security Tab)
         uses: aquasecurity/trivy-action@master
         with:
@@ -209,13 +235,13 @@ jobs:
           format:    sarif
           output:    trivy-results.sarif
           severity:  HIGH,CRITICAL
- 
+
       - name: Upload SARIF to GitHub Security Tab
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-results.sarif
           category:   trivy-image-scan
- 
+
       - name: Trivy Scan Summary
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -234,81 +260,95 @@ jobs:
     permissions:
       contents: read
       id-token: write
- 
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
- 
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           project_id:                 ${{ secrets.GCP_PROJECT_ID }}
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
- 
+
       - name: Setup GCloud CLI
         uses: google-github-actions/setup-gcloud@v2
         with:
           version: 'latest'
- 
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Load Config
+        run: |
+          CONFIG=${{ env.CONFIG_FILE }}
+          echo "PROJECT_ID=$(yq e '.project_id'           $CONFIG)" >> $GITHUB_ENV
+          echo "REGION=$(yq e '.region'                   $CONFIG)" >> $GITHUB_ENV
+          echo "BQ_LOCATION=$(yq e '.bq_location'         $CONFIG)" >> $GITHUB_ENV
+          echo "ENVIRONMENT=$(yq e '.environment'         $CONFIG)" >> $GITHUB_ENV
+          echo "DBT_TARGET=$(yq e '.dbt_target'           $CONFIG)" >> $GITHUB_ENV
+          echo "DATASET_PREFIX=$(yq e '.dataset_prefix'   $CONFIG)" >> $GITHUB_ENV
+          echo "JOB_NAME=$(yq e '.job_name'               $CONFIG)" >> $GITHUB_ENV
+          echo "REPOSITORY=$(yq e '.ar_repo'              $CONFIG)" >> $GITHUB_ENV
+          echo "IMAGE_NAME=$(yq e '.image_name'           $CONFIG)" >> $GITHUB_ENV
+          echo "SERVICE_ACCOUNT=$(yq e '.service_account' $CONFIG)" >> $GITHUB_ENV
+
       - name: Create or Update Cloud Run Job
         run: |
           IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:latest"
- 
+
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "  Deploying Cloud Run Job"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Job Name        : dbt-run-job"
+          echo "  Job Name        : ${{ env.JOB_NAME }}"
           echo "  Image           : $IMAGE"
-          echo "  Service Account : ${{ env.DBT_SERVICE_ACCOUNT }}"
+          echo "  Service Account : ${{ env.SERVICE_ACCOUNT }}"
+          echo "  Environment     : ${{ env.ENVIRONMENT }}"
+          echo "  DBT Target      : ${{ env.DBT_TARGET }}"
+          echo "  Dataset Prefix  : ${{ env.DATASET_PREFIX }}"
+          echo "  BQ Location     : ${{ env.BQ_LOCATION }}"
           echo "  Memory          : 2Gi"
           echo "  CPU             : 2"
           echo "  Task Timeout    : 30m"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
- 
-          # Check if the job already exists — update it if so, create if not
-          if gcloud run jobs describe dbt-run-job \
-              --region="${{ env.REGION }}" \
-              --project="${{ env.PROJECT_ID }}" \
-              --quiet 2>/dev/null; then
- 
-            echo "🔄 Job exists — updating with latest image..."
-            gcloud run jobs update dbt-run-job \
-              --image="$IMAGE" \
-              --region="${{ env.REGION }}" \
-              --project="${{ env.PROJECT_ID }}" \
-              --service-account="${{ env.DBT_SERVICE_ACCOUNT }}" \
-              --clear-secrets \
-              --memory=2Gi \
-              --cpu=2 \
-              --task-timeout=30m \
-              --quiet
- 
-          else
- 
-            echo "🆕 Job not found — creating..."
-            gcloud run jobs create dbt-run-job \
-              --image="$IMAGE" \
-              --region="${{ env.REGION }}" \
-              --project="${{ env.PROJECT_ID }}" \
-              --service-account="${{ env.DBT_SERVICE_ACCOUNT }}" \
-              --clear-secrets \
-              --memory=2Gi \
-              --cpu=2 \
-              --task-timeout=30m \
-              --quiet
- 
-          fi
- 
+
+          gcloud run jobs create "${{ env.JOB_NAME }}" \
+            --image="$IMAGE" \
+            --region="${{ env.REGION }}" \
+            --project="${{ env.PROJECT_ID }}" \
+            --service-account="${{ env.SERVICE_ACCOUNT }}" \
+            --memory="2Gi" \
+            --cpu="2" \
+            --max-retries=0 \
+            --task-timeout="30m" \
+            --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},DBT_DATASET_PREFIX=${{ env.DATASET_PREFIX }},BQ_LOCATION=${{ env.BQ_LOCATION }},DBT_TARGET=${{ env.DBT_TARGET }},ENVIRONMENT=${{ env.ENVIRONMENT }}" \
+            --quiet 2>/dev/null \
+          || \
+          gcloud run jobs update "${{ env.JOB_NAME }}" \
+            --image="$IMAGE" \
+            --region="${{ env.REGION }}" \
+            --project="${{ env.PROJECT_ID }}" \
+            --service-account="${{ env.SERVICE_ACCOUNT }}" \
+            --memory="2Gi" \
+            --cpu="2" \
+            --max-retries=0 \
+            --task-timeout="30m" \
+            --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},DBT_DATASET_PREFIX=${{ env.DATASET_PREFIX }},BQ_LOCATION=${{ env.BQ_LOCATION }},DBT_TARGET=${{ env.DBT_TARGET }},ENVIRONMENT=${{ env.ENVIRONMENT }}" \
+            --quiet
+
           echo "✅ Cloud Run Job deployed with image: $IMAGE"
- 
+
       - name: Confirm Cloud Run Job Deployment
         run: |
           echo "Fetching job details..."
- 
-          gcloud run jobs describe dbt-run-job \
+
+          gcloud run jobs describe "${{ env.JOB_NAME }}" \
             --region="${{ env.REGION }}" \
             --project="${{ env.PROJECT_ID }}" \
             --format="table(
@@ -318,9 +358,9 @@ jobs:
                 spec.template.spec.template.spec.timeoutSeconds,
                 metadata.creationTimestamp
               )"
- 
+
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "  ✅ Docker image pushed to Artifact Registry"
           echo "  ✅ Cloud Run Job deployed successfully"
-          echo "  🔗 GCP Console : https://console.cloud.google.com/run/jobs/details/${{ env.REGION }}/dbt-run-job/executions?project=${{ env.PROJECT_ID }}"
+          echo "  🔗 GCP Console : https://console.cloud.google.com/run/jobs/details/${{ env.REGION }}/${{ env.JOB_NAME }}/executions?project=${{ env.PROJECT_ID }}"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

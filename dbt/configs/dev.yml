@@ -20,7 +20,7 @@ dbt_target: dev
 dataset_prefix: raw_dev
 
 job_name: dbt-run-job
-ar_repo: dbt-docker-image
+ar_repo: dbt-template
 image_name: dbt-docker-image
 
 service_account: dataflow-runner@sw-dev-prj-sandbox.iam.gserviceaccount.com
