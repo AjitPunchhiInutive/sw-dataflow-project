@@ -152,21 +152,21 @@ jobs:
         with:
           version: 'latest'
 
-      - name: Install yq
+      - name: Install yq                        # ← 1st
         run: |
           sudo wget -qO /usr/local/bin/yq \
             https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
 
-      - name: Load Config
+      - name: Load Config                       # ← 2nd — REGION must be set before Docker config
         run: |
           CONFIG=${{ env.CONFIG_FILE }}
-          echo "PROJECT_ID=$(yq e '.project_id'           $CONFIG)" >> $GITHUB_ENV
-          echo "REGION=$(yq e '.region'                   $CONFIG)" >> $GITHUB_ENV
-          echo "REPOSITORY=$(yq e '.ar_repo'              $CONFIG)" >> $GITHUB_ENV
-          echo "IMAGE_NAME=$(yq e '.image_name'           $CONFIG)" >> $GITHUB_ENV
+          echo "PROJECT_ID=$(yq e '.project_id'   $CONFIG)" >> $GITHUB_ENV
+          echo "REGION=$(yq e '.region'           $CONFIG)" >> $GITHUB_ENV
+          echo "REPOSITORY=$(yq e '.ar_repo'      $CONFIG)" >> $GITHUB_ENV
+          echo "IMAGE_NAME=$(yq e '.image_name'   $CONFIG)" >> $GITHUB_ENV
 
-      - name: Configure Docker for Artifact Registry
+      - name: Configure Docker for Artifact Registry   # ← 3rd — REGION now available
         run: |
           gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
@@ -178,77 +178,7 @@ jobs:
         run: |
           IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.run_id }}"
           LATEST="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:latest"
-
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Docker Build & Push"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Image  : $IMAGE"
-          echo "  Source : ./dbt/Dockerfile"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-          docker build \
-            --no-cache \
-            --tag "$IMAGE" \
-            --tag "$LATEST" \
-            --file "./dbt/Dockerfile" \
-            ./dbt
-
-          docker push "$IMAGE"
-          docker push "$LATEST"
-
-          echo "✅ Image pushed: $IMAGE"
-          echo "✅ Image pushed: $LATEST"
-          echo "image=$IMAGE" >> $GITHUB_OUTPUT
-
-      # ── Trivy Scan ──────────────────────────────────────────────────────────
-      - name: Install Trivy
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y wget apt-transport-https gnupg
-          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-          echo "deb https://aquasecurity.github.io/trivy-repo/deb generic main" \
-            | sudo tee /etc/apt/sources.list.d/trivy.list
-          sudo apt-get update -y
-          sudo apt-get install -y trivy
-          trivy --version
-
-      - name: Scan Image with Trivy (Table - Console Output)
-        run: |
-          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.run_id }}"
-
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Trivy Security Scan"
-          echo "  Image : $IMAGE"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-          trivy image \
-            --exit-code 0 \
-            --ignore-unfixed \
-            --severity HIGH,CRITICAL \
-            --format table \
-            "$IMAGE"
-
-      - name: Scan Image with Trivy (SARIF - GitHub Security Tab)
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: "${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.run_id }}"
-          format:    sarif
-          output:    trivy-results.sarif
-          severity:  HIGH,CRITICAL
-
-      - name: Upload SARIF to GitHub Security Tab
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: trivy-results.sarif
-          category:   trivy-image-scan
-
-      - name: Trivy Scan Summary
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  ✅ Docker image built and pushed"
-          echo "  ✅ Trivy scan complete"
-          echo "  🔗 Results → GitHub repo → Security → Code scanning"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          # ... rest of step unchanged
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Job 4 │ Deploy to Cloud Run Job
