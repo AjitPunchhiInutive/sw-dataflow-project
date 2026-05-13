@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 env:
-  CONFIG_FILE: ./dbt/config/dev.yml   # ← single source of truth
+  CONFIG_FILE: ./dbt/configs/dev.yml   # ← single source of truth
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Job 1 │ Plan
