@@ -1,0 +1,336 @@
+# name: Build DBT Image for Testing
+
+# on:
+#   pull_request:
+#     branches:
+#       - main
+#     paths:
+#       - 'dbt/**'
+#   workflow_dispatch:
+
+# env:
+#   REGION:               us-east4
+#   PROJECT_ID:           sw-dev-prj-sandbox
+#   REPOSITORY:           dbt-template
+#   IMAGE_NAME:           dbt-docker-image
+#   CLOUD_RUN_SERVICE:    dbt-cloud-run-service
+#   DBT_SERVICE_ACCOUNT:  dataflow-runner@sw-dev-prj-sandbox.iam.gserviceaccount.com
+#   CONFIG_FILE:          ./dbt/config/dev.yml
+
+# # ══════════════════════════════════════════════════════════════════════════════
+# # Job 1 │ Plan
+# # ══════════════════════════════════════════════════════════════════════════════
+# jobs:
+
+#   plan:
+#     name: "Step 1 | Show Deployment Plan"
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: read
+#       id-token: write
+
+#     steps:
+#       - name: Checkout Code
+#         uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0
+
+#       - name: Authenticate to Google Cloud
+#         uses: google-github-actions/auth@v2
+#         with:
+#           project_id:                 ${{ secrets.GCP_PROJECT_ID }}
+#           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+#           service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+#       - name: Setup GCloud CLI
+#         uses: google-github-actions/setup-gcloud@v2
+#         with:
+#           version: 'latest'
+
+#       - name: Show Deployment Plan
+#         run: |
+#           IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.run_id }}"
+
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  DBT Cloud Run Deployment Plan"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  Project           : ${{ env.PROJECT_ID }}"
+#           echo "  Region            : ${{ env.REGION }}"
+#           echo "  Artifact Registry : ${{ env.REPOSITORY }}"
+#           echo "  Image             : $IMAGE"
+#           echo "  Dockerfile        : ./dbt/Dockerfile"
+#           echo "  Cloud Run Service : ${{ env.CLOUD_RUN_SERVICE }}"
+#           echo "  Triggered By      : ${{ github.actor }}"
+#           echo "  Run ID            : ${{ github.run_id }}"
+#           echo "  Branch            : ${{ github.head_ref || github.ref_name }}"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+#       - name: Preview Existing Cloud Run Revision
+#         run: |
+#           echo "Current Cloud Run Service Status:"
+#           gcloud run services describe ${{ env.CLOUD_RUN_SERVICE }} \
+#             --region="${{ env.REGION }}" \
+#             --project="${{ env.PROJECT_ID }}" \
+#             --format="table(
+#                 metadata.name,
+#                 status.latestCreatedRevisionName,
+#                 status.latestReadyRevisionName,
+#                 status.url
+#               )" 2>/dev/null \
+#           || echo "  ⚠️  Service '${{ env.CLOUD_RUN_SERVICE }}' not found — will be created fresh."
+
+# # ══════════════════════════════════════════════════════════════════════════════
+# # Job 2 │ Approval Gate
+# # ══════════════════════════════════════════════════════════════════════════════
+#   approval:
+#     name: "Step 2 | Approval Gate"
+#     needs: plan
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: read
+#     environment:
+#       name: dataflow-approval                       # ← create this environment in repo Settings → Environments
+#       url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+#     steps:
+#       - name: Awaiting Approval
+#         run: |
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  Review the plan above and approve to continue"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "   Approval granted — proceeding to build"
+
+# # ══════════════════════════════════════════════════════════════════════════════
+# # Job 3 │ Build & Push Docker Image
+# # ══════════════════════════════════════════════════════════════════════════════
+#   build-and-push:
+#     name: "Step 3 | Build & Push Docker Image"
+#     needs: approval
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: read
+#       id-token: write
+
+#     outputs:
+#       image: ${{ steps.set-image.outputs.image }}   # passes the image URI to the deploy job
+
+#     steps:
+#       - name: Checkout Code
+#         uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0
+
+#       - name: Authenticate to Google Cloud
+#         uses: google-github-actions/auth@v2
+#         with:
+#           project_id:                 ${{ secrets.GCP_PROJECT_ID }}
+#           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+#           service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+#       - name: Setup GCloud CLI
+#         uses: google-github-actions/setup-gcloud@v2
+#         with:
+#           version: 'latest'
+
+#       - name: Configure Docker for Artifact Registry
+#         run: |
+#           gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+#       - name: Set up Docker Buildx
+#         uses: docker/setup-buildx-action@v3
+
+#       - name: Build and Push Docker Image
+#         id: set-image
+#         run: |
+#           IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.run_id }}"
+#           LATEST="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:latest"
+
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  Docker Build & Push"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  Image  : $IMAGE"
+#           echo "  Source : ./dbt/Dockerfile"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+#           echo "Building Docker image..."
+#           docker build \
+#             --no-cache \
+#             --tag "$IMAGE" \
+#             --tag "$LATEST" \
+#             --file "./dbt/Dockerfile" \
+#             ./dbt
+
+#           echo "Pushing image with run_id tag..."
+#           docker push "$IMAGE"
+
+#           echo "Pushing image with latest tag..."
+#           docker push "$LATEST"
+
+#           echo "Image successfully pushed:"
+#           echo "   → $IMAGE"
+#           echo "   → $LATEST"
+
+#           # Export image URI for the deploy job
+#           echo "image=$IMAGE" >> $GITHUB_OUTPUT
+      
+#            # ── Trivy Scan ─────────────────────────────────────────────────────────
+
+#       - name: Install Trivy
+#         run: |
+#           sudo apt-get update -y
+#           sudo apt-get install -y wget apt-transport-https gnupg
+#           wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+#           echo "deb https://aquasecurity.github.io/trivy-repo/deb generic main" \
+#             | sudo tee /etc/apt/sources.list.d/trivy.list
+#           sudo apt-get update -y
+#           sudo apt-get install -y trivy
+#           trivy --version
+ 
+#       - name: Scan Image with Trivy (Table - Console Output)
+#         run: |
+#           IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.run_id }}"
+ 
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  Trivy Security Scan"
+#           echo "  Image : $IMAGE"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+ 
+#           trivy image \
+#             --exit-code 0 \
+#             --severity LOW,MEDIUM,HIGH,CRITICAL \
+#             --format table \
+#             "$IMAGE"
+#           # exit-code 0  → pipeline continues even if vulnerabilities found
+#           # exit-code 1  → pipeline BLOCKS on any finding at specified severity
+ 
+#       - name: Scan Image with Trivy (SARIF - GitHub Security Tab)
+#         uses: aquasecurity/trivy-action@master
+#         with:
+#           image-ref: "${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.run_id }}"
+#           format:    sarif
+#           output:    trivy-results.sarif
+#           severity:  HIGH,CRITICAL
+ 
+#       - name: Upload SARIF to GitHub Security Tab
+#         uses: github/codeql-action/upload-sarif@v3
+#         with:
+#           sarif_file: trivy-results.sarif
+#           category:   trivy-image-scan
+ 
+#       - name: Trivy Scan Summary
+#         run: |
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  ✅ Docker image built and pushed"
+#           echo "  ✅ Trivy scan complete"
+#           echo "  🔗 Results → GitHub repo → Security → Code scanning"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# # ══════════════════════════════════════════════════════════════════════════════
+# # Job 4 │ Deploy to Cloud Run Job
+# # ══════════════════════════════════════════════════════════════════════════════
+#   deploy-cloud-run:
+#     name: "Step 4 | Deploy to Cloud Run Job"
+#     needs: build-and-push
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: read
+#       id-token: write
+ 
+#     steps:
+#       - name: Checkout Code
+#         uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0
+ 
+#       - name: Authenticate to Google Cloud
+#         uses: google-github-actions/auth@v2
+#         with:
+#           project_id:                 ${{ secrets.GCP_PROJECT_ID }}
+#           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+#           service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+ 
+#       - name: Setup GCloud CLI
+#         uses: google-github-actions/setup-gcloud@v2
+#         with:
+#           version: 'latest'
+ 
+#       - name: Load Config
+#         run: |
+#           CONFIG=$(cat config/dev.yml)
+#           echo "PROJECT_ID=$(echo "$CONFIG"      | yq e '.project_id' -)"       >> $GITHUB_ENV
+#           echo "REGION=$(echo "$CONFIG"          | yq e '.region' -)"           >> $GITHUB_ENV
+#           echo "BQ_LOCATION=$(echo "$CONFIG"     | yq e '.bq_location' -)"      >> $GITHUB_ENV
+#           echo "ENVIRONMENT=$(echo "$CONFIG"     | yq e '.environment' -)"      >> $GITHUB_ENV
+#           echo "DBT_TARGET=$(echo "$CONFIG"      | yq e '.dbt_target' -)"       >> $GITHUB_ENV
+#           echo "DATASET_PREFIX=$(echo "$CONFIG"  | yq e '.dataset_prefix' -)"   >> $GITHUB_ENV
+#           echo "JOB_NAME=$(echo "$CONFIG"        | yq e '.job_name' -)"         >> $GITHUB_ENV
+#           echo "REPOSITORY=$(echo "$CONFIG"      | yq e '.ar_repo' -)"          >> $GITHUB_ENV
+#           echo "IMAGE_NAME=$(echo "$CONFIG"      | yq e '.image_name' -)"       >> $GITHUB_ENV
+#           echo "SERVICE_ACCOUNT=$(echo "$CONFIG" | yq e '.service_account' -)"  >> $GITHUB_ENV
+ 
+#       - name: Create or Update Cloud Run Job
+#         run: |
+#           IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:latest"
+ 
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  Deploying Cloud Run Job"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  Job Name        : ${{ env.JOB_NAME }}"
+#           echo "  Image           : $IMAGE"
+#           echo "  Service Account : ${{ env.SERVICE_ACCOUNT }}"
+#           echo "  Environment     : ${{ env.ENVIRONMENT }}"
+#           echo "  DBT Target      : ${{ env.DBT_TARGET }}"
+#           echo "  Dataset Prefix  : ${{ env.DATASET_PREFIX }}"
+#           echo "  BQ Location     : ${{ env.BQ_LOCATION }}"
+#           echo "  Memory          : 2Gi"
+#           echo "  CPU             : 2"
+#           echo "  Task Timeout    : 30m"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+ 
+#           # Try create first — if job already exists, update it instead
+#           gcloud run jobs create "${{ env.JOB_NAME }}" \
+#             --image="$IMAGE" \
+#             --region="${{ env.REGION }}" \
+#             --project="${{ env.PROJECT_ID }}" \
+#             --service-account="${{ env.SERVICE_ACCOUNT }}" \
+#             --memory="2Gi" \
+#             --cpu="2" \
+#             --max-retries=0 \
+#             --task-timeout="30m" \
+#             --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},DBT_DATASET_PREFIX=${{ env.DATASET_PREFIX }},BQ_LOCATION=${{ env.BQ_LOCATION }},DBT_TARGET=${{ env.DBT_TARGET }},ENVIRONMENT=${{ env.ENVIRONMENT }}" \
+#             --quiet 2>/dev/null \
+#           || \
+#           gcloud run jobs update "${{ env.JOB_NAME }}" \
+#             --image="$IMAGE" \
+#             --region="${{ env.REGION }}" \
+#             --project="${{ env.PROJECT_ID }}" \
+#             --service-account="${{ env.SERVICE_ACCOUNT }}" \
+#             --memory="2Gi" \
+#             --cpu="2" \
+#             --max-retries=0 \
+#             --task-timeout="30m" \
+#             --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},DBT_DATASET_PREFIX=${{ env.DATASET_PREFIX }},BQ_LOCATION=${{ env.BQ_LOCATION }},DBT_TARGET=${{ env.DBT_TARGET }},ENVIRONMENT=${{ env.ENVIRONMENT }}" \
+#             --quiet
+ 
+#           echo "✅ Cloud Run Job deployed with image: $IMAGE"
+ 
+#       - name: Confirm Cloud Run Job Deployment
+#         run: |
+#           echo "Fetching job details..."
+ 
+#           gcloud run jobs describe dbt-run-job \
+#             --region="${{ env.REGION }}" \
+#             --project="${{ env.PROJECT_ID }}" \
+#             --format="table(
+#                 metadata.name,
+#                 spec.template.spec.template.spec.containers[0].image,
+#                 spec.template.spec.template.spec.serviceAccountName,
+#                 spec.template.spec.template.spec.timeoutSeconds,
+#                 metadata.creationTimestamp
+#               )"
+ 
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  ✅ Docker image pushed to Artifact Registry"
+#           echo "  ✅ Cloud Run Job deployed successfully"
+#           echo "  🔗 GCP Console : https://console.cloud.google.com/run/jobs/details/${{ env.REGION }}/dbt-run-job/executions?project=${{ env.PROJECT_ID }}"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

@@ -19,9 +19,9 @@ environment: prod
 dbt_target: prod
 dataset_prefix: raw
 
-job_name: dbt-run-job-prod
-ar_repo: dbt-repo
-image_name: dbt-gcp-poc
+job_name: dbt-run-job
+ar_repo: dbt-docker-image
+image_name: dbt-docker-image
 
 service_account: dataflow-runner@sw-dev-prj-sandbox.iam.gserviceaccount.com
 composer_env: dbt-poc-composer
