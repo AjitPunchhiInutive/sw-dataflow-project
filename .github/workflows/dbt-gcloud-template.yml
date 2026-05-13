@@ -179,7 +179,27 @@ jobs:
         run: |
           IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.run_id }}"
           LATEST="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:latest"
-          # ... rest of step unchanged
+          
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  Docker Build & Push"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  Image  : $IMAGE"
+          echo "  Source : ./dbt/Dockerfile"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+ 
+          docker build \
+            --no-cache \
+            --tag "$IMAGE" \
+            --tag "$LATEST" \
+            --file "./dbt/Dockerfile" \
+            ./dbt
+ 
+          docker push "$IMAGE"
+          docker push "$LATEST"
+ 
+          echo "✅ Image pushed: $IMAGE"
+          echo "✅ Image pushed: $LATEST"
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Job 4 │ Deploy to Cloud Run Job
