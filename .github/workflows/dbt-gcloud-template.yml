@@ -166,9 +166,10 @@ jobs:
           echo "REPOSITORY=$(yq e '.ar_repo'      $CONFIG)" >> $GITHUB_ENV
           echo "IMAGE_NAME=$(yq e '.image_name'   $CONFIG)" >> $GITHUB_ENV
 
-      - name: Configure Docker for Artifact Registry   # ← 3rd — REGION now available
+      - name: Configure Docker for Artifact Registry
         run: |
-          gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+          REGION=$(yq e '.region' ${{ env.CONFIG_FILE }})
+          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
