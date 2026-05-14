@@ -226,10 +226,53 @@ jobs:
       - name: Load Config
         run: |
           CONFIG=${{ env.CONFIG_FILE }}
-          echo "PROJECT_ID=$(yq e '.project_id'   $CONFIG)" >> $GITHUB_ENV
-          echo "REGION=$(yq e '.region'           $CONFIG)" >> $GITHUB_ENV
-          echo "REPOSITORY=$(yq e '.ar_repo'      $CONFIG)" >> $GITHUB_ENV
-          echo "IMAGE_NAME=$(yq e '.image_name'   $CONFIG)" >> $GITHUB_ENV
+          echo "PROJECT_ID=$(yq e '.project_id'           $CONFIG)" >> $GITHUB_ENV
+          echo "REGION=$(yq e '.region'                   $CONFIG)" >> $GITHUB_ENV
+          echo "BQ_LOCATION=$(yq e '.bq_location'         $CONFIG)" >> $GITHUB_ENV
+          echo "ENVIRONMENT=$(yq e '.environment'         $CONFIG)" >> $GITHUB_ENV
+          echo "DBT_TARGET=$(yq e '.dbt_target'           $CONFIG)" >> $GITHUB_ENV
+          echo "DATASET_PREFIX=$(yq e '.dataset_prefix'   $CONFIG)" >> $GITHUB_ENV
+          echo "JOB_NAME=$(yq e '.job_name'               $CONFIG)" >> $GITHUB_ENV
+          echo "REPOSITORY=$(yq e '.ar_repo'              $CONFIG)" >> $GITHUB_ENV
+          echo "IMAGE_NAME=$(yq e '.image_name'           $CONFIG)" >> $GITHUB_ENV
+          echo "SERVICE_ACCOUNT=$(yq e '.service_account' $CONFIG)" >> $GITHUB_ENV
+      
+      - name: Validate Config
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  Validating loaded config values"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  PROJECT_ID      : ${{ env.PROJECT_ID }}"
+          echo "  REGION          : ${{ env.REGION }}"
+          echo "  REPOSITORY      : ${{ env.REPOSITORY }}"
+          echo "  IMAGE_NAME      : ${{ env.IMAGE_NAME }}"
+          echo "  JOB_NAME        : ${{ env.JOB_NAME }}"
+          echo "  SERVICE_ACCOUNT : ${{ env.SERVICE_ACCOUNT }}"
+          echo "  DATASET_PREFIX  : ${{ env.DATASET_PREFIX }}"
+          echo "  BQ_LOCATION     : ${{ env.BQ_LOCATION }}"
+          echo "  DBT_TARGET      : ${{ env.DBT_TARGET }}"
+          echo "  ENVIRONMENT     : ${{ env.ENVIRONMENT }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          ERRORS=0
+          for VAR in PROJECT_ID REGION REPOSITORY IMAGE_NAME JOB_NAME SERVICE_ACCOUNT DATASET_PREFIX BQ_LOCATION DBT_TARGET ENVIRONMENT; do
+            VALUE=$(printenv "$VAR")
+            if [[ -z "$VALUE" || "$VALUE" == "null" ]]; then
+              echo "  ❌ $VAR is empty or null — check config key in ${{ env.CONFIG_FILE }}"
+              ERRORS=$((ERRORS + 1))
+            else
+              echo "  ✅ $VAR = $VALUE"
+            fi
+          done
+
+          if [[ $ERRORS -gt 0 ]]; then
+            echo ""
+            echo "  ❌ $ERRORS config value(s) failed validation — aborting."
+            exit 1
+          fi
+
+          echo ""
+          echo "  ✅ All config values validated successfully"
 
       - name: Configure Docker for Artifact Registry
         run: |
@@ -241,7 +284,7 @@ jobs:
       - name: Resolve Image Tags
         id: set-image
         run: |
-          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.run_id }}"
+          FULL_IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.run_id }}"
           LATEST="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:latest"
 
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
