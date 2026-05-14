@@ -379,48 +379,56 @@ jobs:
 
       - name: Create or Update Cloud Run Job
         run: |
-          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:latest"
+          FULL_IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.IMAGE_NAME }}:latest"
 
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "  Deploying Cloud Run Job"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "  Job Name        : ${{ env.JOB_NAME }}"
-          echo "  Image           : $IMAGE"
+          echo "  Image           : $FULL_IMAGE"
           echo "  Service Account : ${{ env.SERVICE_ACCOUNT }}"
-          echo "  Environment     : ${{ env.ENVIRONMENT }}"
-          echo "  DBT Target      : ${{ env.DBT_TARGET }}"
-          echo "  Dataset Prefix  : ${{ env.DATASET_PREFIX }}"
-          echo "  BQ Location     : ${{ env.BQ_LOCATION }}"
           echo "  Memory          : 2Gi"
           echo "  CPU             : 2"
           echo "  Task Timeout    : 30m"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-          gcloud run jobs create "${{ env.JOB_NAME }}" \
-            --image="$IMAGE" \
-            --region="${{ env.REGION }}" \
-            --project="${{ env.PROJECT_ID }}" \
-            --service-account="${{ env.SERVICE_ACCOUNT }}" \
-            --memory="2Gi" \
-            --cpu="2" \
-            --max-retries=0 \
-            --task-timeout="30m" \
-            --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},DBT_DATASET_PREFIX=${{ env.DATASET_PREFIX }},BQ_LOCATION=${{ env.BQ_LOCATION }},DBT_TARGET=${{ env.DBT_TARGET }},ENVIRONMENT=${{ env.ENVIRONMENT }}" \
-            --quiet 2>/dev/null \
-          || \
-          gcloud run jobs update "${{ env.JOB_NAME }}" \
-            --image="$IMAGE" \
-            --region="${{ env.REGION }}" \
-            --project="${{ env.PROJECT_ID }}" \
-            --service-account="${{ env.SERVICE_ACCOUNT }}" \
-            --memory="2Gi" \
-            --cpu="2" \
-            --max-retries=0 \
-            --task-timeout="30m" \
-            --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},DBT_DATASET_PREFIX=${{ env.DATASET_PREFIX }},BQ_LOCATION=${{ env.BQ_LOCATION }},DBT_TARGET=${{ env.DBT_TARGET }},ENVIRONMENT=${{ env.ENVIRONMENT }}" \
-            --quiet
+          # Explicitly check if job exists first — avoids silent failure cascade
+          if gcloud run jobs describe "${{ env.JOB_NAME }}" \
+              --region="${{ env.REGION }}" \
+              --project="${{ env.PROJECT_ID }}" \
+              --quiet 2>/dev/null; then
 
-          echo "✅ Cloud Run Job deployed with image: $IMAGE"
+            echo "🔄 Job exists — updating..."
+            gcloud run jobs update "${{ env.JOB_NAME }}" \
+              --image="${FULL_IMAGE}" \
+              --region="${{ env.REGION }}" \
+              --project="${{ env.PROJECT_ID }}" \
+              --service-account="${{ env.SERVICE_ACCOUNT }}" \
+              --memory="2Gi" \
+              --cpu="2" \
+              --max-retries=0 \
+              --task-timeout="30m" \
+              --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},DBT_DATASET_PREFIX=${{ env.DATASET_PREFIX }},BQ_LOCATION=${{ env.BQ_LOCATION }},DBT_TARGET=${{ env.DBT_TARGET }},ENVIRONMENT=${{ env.ENVIRONMENT }}" \
+              --direct-vpc-egress=all
+
+          else
+
+            echo "🆕 Job not found — creating..."
+            gcloud run jobs create "${{ env.JOB_NAME }}" \
+              --image="${FULL_IMAGE}" \
+              --region="${{ env.REGION }}" \
+              --project="${{ env.PROJECT_ID }}" \
+              --service-account="${{ env.SERVICE_ACCOUNT }}" \
+              --memory="2Gi" \
+              --cpu="2" \
+              --max-retries=0 \
+              --task-timeout="30m" \
+              --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},DBT_DATASET_PREFIX=${{ env.DATASET_PREFIX }},BQ_LOCATION=${{ env.BQ_LOCATION }},DBT_TARGET=${{ env.DBT_TARGET }},ENVIRONMENT=${{ env.ENVIRONMENT }}" \
+              --direct-vpc-egress=all
+
+          fi
+
+          echo "✅ Cloud Run Job deployed: $FULL_IMAGE"
 
       - name: Confirm Cloud Run Job Deployment
         run: |
