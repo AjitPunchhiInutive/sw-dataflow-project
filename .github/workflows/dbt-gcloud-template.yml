@@ -107,6 +107,7 @@ jobs:
       #    string — prevents later steps/jobs from reading stale values if the
       #    runner is somehow reused.
       # 5. Remove the checked-out workspace.
+      # ── Cleanup ─────────────────────────────────────────────────────────────
       - name: Cleanup
         if: always()
         run: |
@@ -125,9 +126,9 @@ jobs:
 
           # ── Docker credentials ───────────────────────────────────────────
           echo "  Removing Docker credential store..."
-          rm -f "${HOME}/.docker/config.json" 2>/dev/null || true
+          rm -f  "${HOME}/.docker/config.json"        2>/dev/null || true
 
-          # ── Unset env vars (current shell + overwrite GITHUB_ENV) ────────
+          # ── Unset env vars ───────────────────────────────────────────────
           echo "  Unsetting environment variables..."
           unset PROJECT_ID REGION BQ_LOCATION ENVIRONMENT DBT_TARGET \
                 DATASET_PREFIX JOB_NAME REPOSITORY IMAGE_NAME         \
@@ -151,9 +152,13 @@ jobs:
             echo "GOOGLE_CLOUD_PROJECT="
           } >> $GITHUB_ENV
 
-          # ── Workspace ────────────────────────────────────────────────────
-          echo "  Removing workspace..."
-          rm -rf "${GITHUB_WORKSPACE}" 2>/dev/null || true
+          # ── NOTE: $GITHUB_WORKSPACE is intentionally NOT removed ─────────
+          # GitHub Actions post-job hooks (checkout@v4, auth@v2, etc.) run
+          # Node.js processes after all steps complete and require the working
+          # directory to exist. Deleting it causes:
+          #   "No such file or directory" on node20/bin/node
+          # GitHub-hosted runners are ephemeral — the entire VM is destroyed
+          # at the end of the job, so workspace removal is unnecessary.
 
           echo "  ✅ Cleanup complete"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -288,30 +293,37 @@ jobs:
           echo "  Removing Docker credential store..."
           rm -f  "${HOME}/.docker/config.json"        2>/dev/null || true
 
-          # ── Buildx cache temp dirs ───────────────────────────────────────
-          echo "  Removing buildx temp cache..."
-          rm -rf /tmp/.buildx-cache /tmp/.buildx-cache-new 2>/dev/null || true
-
           # ── Unset env vars ───────────────────────────────────────────────
           echo "  Unsetting environment variables..."
-          unset PROJECT_ID REGION REPOSITORY IMAGE_NAME \
-                GOOGLE_APPLICATION_CREDENTIALS          \
+          unset PROJECT_ID REGION BQ_LOCATION ENVIRONMENT DBT_TARGET \
+                DATASET_PREFIX JOB_NAME REPOSITORY IMAGE_NAME         \
+                SERVICE_ACCOUNT GOOGLE_APPLICATION_CREDENTIALS         \
                 CLOUDSDK_CORE_PROJECT GCLOUD_PROJECT GOOGLE_CLOUD_PROJECT
 
           {
             echo "PROJECT_ID="
             echo "REGION="
+            echo "BQ_LOCATION="
+            echo "ENVIRONMENT="
+            echo "DBT_TARGET="
+            echo "DATASET_PREFIX="
+            echo "JOB_NAME="
             echo "REPOSITORY="
             echo "IMAGE_NAME="
+            echo "SERVICE_ACCOUNT="
             echo "GOOGLE_APPLICATION_CREDENTIALS="
             echo "CLOUDSDK_CORE_PROJECT="
             echo "GCLOUD_PROJECT="
             echo "GOOGLE_CLOUD_PROJECT="
           } >> $GITHUB_ENV
 
-          # ── Workspace ────────────────────────────────────────────────────
-          echo "  Removing workspace..."
-          rm -rf "${GITHUB_WORKSPACE}" 2>/dev/null || true
+          # ── NOTE: $GITHUB_WORKSPACE is intentionally NOT removed ─────────
+          # GitHub Actions post-job hooks (checkout@v4, auth@v2, etc.) run
+          # Node.js processes after all steps complete and require the working
+          # directory to exist. Deleting it causes:
+          #   "No such file or directory" on node20/bin/node
+          # GitHub-hosted runners are ephemeral — the entire VM is destroyed
+          # at the end of the job, so workspace removal is unnecessary.
 
           echo "  ✅ Cleanup complete"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -474,9 +486,13 @@ jobs:
             echo "GOOGLE_CLOUD_PROJECT="
           } >> $GITHUB_ENV
 
-          # ── Workspace ────────────────────────────────────────────────────
-          echo "  Removing workspace..."
-          rm -rf "${GITHUB_WORKSPACE}" 2>/dev/null || true
+          # ── NOTE: $GITHUB_WORKSPACE is intentionally NOT removed ─────────
+          # GitHub Actions post-job hooks (checkout@v4, auth@v2, etc.) run
+          # Node.js processes after all steps complete and require the working
+          # directory to exist. Deleting it causes:
+          #   "No such file or directory" on node20/bin/node
+          # GitHub-hosted runners are ephemeral — the entire VM is destroyed
+          # at the end of the job, so workspace removal is unnecessary.
 
           echo "  ✅ Cleanup complete"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
