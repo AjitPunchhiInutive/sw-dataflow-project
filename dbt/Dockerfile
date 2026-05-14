@@ -38,7 +38,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DBT_PROFILES_DIR=/dbt
 
 # bash is required — entrypoint.sh uses #!/bin/bash
-# without this the container exits immediately with "Application failed to start"
 RUN apk add --no-cache \
         ca-certificates \
         bash
@@ -68,6 +67,23 @@ RUN mkdir -p \
 COPY entrypoint.sh /entrypoint.sh
 RUN sed -i 's/\r//' /entrypoint.sh && \
     chmod +x /entrypoint.sh
+
+# ── Health Check ──────────────────────────────────────────────────────────────
+# Cloud Run Jobs have no HTTP endpoint so we probe key binaries directly:
+#   1. dbt binary exists and is executable
+#   2. entrypoint.sh exists and is executable
+#   3. python is available
+# start-period=10s gives the container time to initialise before first check.
+HEALTHCHECK --interval=30s \
+            --timeout=10s \
+            --start-period=10s \
+            --retries=3 \
+    CMD bash -c " \
+        test -x /usr/local/bin/dbt        || exit 1; \
+        test -x /entrypoint.sh            || exit 1; \
+        python --version > /dev/null 2>&1 || exit 1; \
+        dbt --version > /dev/null 2>&1    || exit 1 \
+    "
 
 # Drop to non-root AFTER all permission setup is done
 USER dbt
