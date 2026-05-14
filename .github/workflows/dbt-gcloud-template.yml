@@ -409,7 +409,9 @@ jobs:
               --max-retries=0 \
               --task-timeout="30m" \
               --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},DBT_DATASET_PREFIX=${{ env.DATASET_PREFIX }},BQ_LOCATION=${{ env.BQ_LOCATION }},DBT_TARGET=${{ env.DBT_TARGET }},ENVIRONMENT=${{ env.ENVIRONMENT }}" \
-              --vpc-egress=all-traffic
+              --network="dataflow-network" \
+              --subnet="projects/sw-dev-prj-sandbox/regions/us-east4/subnetworks/dataflow-subnet" \   
+              --vpc-egress="all-traffic"
 
           else
 
@@ -424,7 +426,9 @@ jobs:
               --max-retries=0 \
               --task-timeout="30m" \
               --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},DBT_DATASET_PREFIX=${{ env.DATASET_PREFIX }},BQ_LOCATION=${{ env.BQ_LOCATION }},DBT_TARGET=${{ env.DBT_TARGET }},ENVIRONMENT=${{ env.ENVIRONMENT }}" \
-              --vpc-egress=all-traffic
+              --network="dataflow-network" \
+              --subnet="projects/sw-dev-prj-sandbox/regions/us-east4/subnetworks/dataflow-subnet" \   
+              --vpc-egress="all-traffic"
 
           fi
 
