@@ -1,4 +1,4 @@
-FROM gcr.io/dataflow-templates-base/python311-template-launcher-base:latest
+FROM gcr.io/dataflow-templates-base/python312-template-launcher-base:latest
 RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends \
         default-jre-headless \

@@ -186,117 +186,117 @@ jobs:
           gsutil ls "$TEMPLATE"
           echo "✅ Template confirmed in GCS"
 
-  # ── Job 4: Deploy ─────────────────────────────────────────────────────────
-  deploy-dataflow-template:
-    name: "Step 4 | Deploy Dataflow Flex Template"
-    needs: build-dataflow-template
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
+  # # ── Job 4: Deploy ─────────────────────────────────────────────────────────
+  # deploy-dataflow-template:
+  #   name: "Step 4 | Deploy Dataflow Flex Template"
+  #   needs: build-dataflow-template
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     contents: read
+  #     id-token: write
 
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+  #   steps:
+  #     - name: Checkout Code
+  #       uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
 
-      - name: Load Config
-        run: |
-          CONFIG=$(cat ${{ env.CONFIG_FILE }})
-          echo "PROJECT_ID=$(echo $CONFIG      | jq -r '.project_id')"      >> $GITHUB_ENV
-          echo "REGION=$(echo $CONFIG          | jq -r '.region')"          >> $GITHUB_ENV
-          echo "JOB_NAME=$(echo $CONFIG        | jq -r '.job_name')"        >> $GITHUB_ENV
-          echo "NETWORK=$(echo $CONFIG         | jq -r '.network')"         >> $GITHUB_ENV
-          echo "SUBNETWORK=$(echo $CONFIG      | jq -r '.subnetwork')"      >> $GITHUB_ENV
-          echo "SERVICE_ACCOUNT=$(echo $CONFIG | jq -r '.service_account')" >> $GITHUB_ENV
-          echo "TEMPLATE_BUCKET=$(echo $CONFIG | jq -r '.template_bucket')" >> $GITHUB_ENV
-          echo "SUBSCRIPTION=$(echo $CONFIG    | jq -r '.subscription')"    >> $GITHUB_ENV
-          echo "BQ_TABLE_OK=$(echo $CONFIG     | jq -r '.bq_table_ok')"     >> $GITHUB_ENV
-          echo "BQ_TABLE_ERR=$(echo $CONFIG    | jq -r '.bq_table_err')"    >> $GITHUB_ENV
+  #     - name: Load Config
+  #       run: |
+  #         CONFIG=$(cat ${{ env.CONFIG_FILE }})
+  #         echo "PROJECT_ID=$(echo $CONFIG      | jq -r '.project_id')"      >> $GITHUB_ENV
+  #         echo "REGION=$(echo $CONFIG          | jq -r '.region')"          >> $GITHUB_ENV
+  #         echo "JOB_NAME=$(echo $CONFIG        | jq -r '.job_name')"        >> $GITHUB_ENV
+  #         echo "NETWORK=$(echo $CONFIG         | jq -r '.network')"         >> $GITHUB_ENV
+  #         echo "SUBNETWORK=$(echo $CONFIG      | jq -r '.subnetwork')"      >> $GITHUB_ENV
+  #         echo "SERVICE_ACCOUNT=$(echo $CONFIG | jq -r '.service_account')" >> $GITHUB_ENV
+  #         echo "TEMPLATE_BUCKET=$(echo $CONFIG | jq -r '.template_bucket')" >> $GITHUB_ENV
+  #         echo "SUBSCRIPTION=$(echo $CONFIG    | jq -r '.subscription')"    >> $GITHUB_ENV
+  #         echo "BQ_TABLE_OK=$(echo $CONFIG     | jq -r '.bq_table_ok')"     >> $GITHUB_ENV
+  #         echo "BQ_TABLE_ERR=$(echo $CONFIG    | jq -r '.bq_table_err')"    >> $GITHUB_ENV
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          project_id:                 ${{ secrets.GCP_PROJECT_ID }}
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+  #     - name: Authenticate to Google Cloud
+  #       uses: google-github-actions/auth@v2
+  #       with:
+  #         project_id:                 ${{ secrets.GCP_PROJECT_ID }}
+  #         workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+  #         service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
 
-      - name: Setup GCloud CLI
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          version: 'latest'
+  #     - name: Setup GCloud CLI
+  #       uses: google-github-actions/setup-gcloud@v2
+  #       with:
+  #         version: 'latest'
 
-      - name: Validate Template Exists in GCS
-        run: |
-          TEMPLATE="${{ env.TEMPLATE_BUCKET }}/oden-gcs-parquet-${{ github.run_id }}.json"
-          gsutil stat "$TEMPLATE"
-          echo "✅ Template found — ready for deployment"
+  #     - name: Validate Template Exists in GCS
+  #       run: |
+  #         TEMPLATE="${{ env.TEMPLATE_BUCKET }}/oden-gcs-parquet-${{ github.run_id }}.json"
+  #         gsutil stat "$TEMPLATE"
+  #         echo "✅ Template found — ready for deployment"
 
-      - name: Drain Existing Dataflow Job
-        run: |
-          JOB_ID=$(gcloud dataflow jobs list \
-            --project="${{ env.PROJECT_ID }}" \
-            --region="${{ env.REGION }}" \
-            --filter="name=${{ env.JOB_NAME }} AND state=Running" \
-            --format=value\(id\) | head -n 1)
+  #     - name: Drain Existing Dataflow Job
+  #       run: |
+  #         JOB_ID=$(gcloud dataflow jobs list \
+  #           --project="${{ env.PROJECT_ID }}" \
+  #           --region="${{ env.REGION }}" \
+  #           --filter="name=${{ env.JOB_NAME }} AND state=Running" \
+  #           --format=value\(id\) | head -n 1)
 
-          if [ -z "$JOB_ID" ]; then
-            echo "No running job found. Skipping drain."
-            exit 0
-          fi
+  #         if [ -z "$JOB_ID" ]; then
+  #           echo "No running job found. Skipping drain."
+  #           exit 0
+  #         fi
 
-          echo "Draining job: $JOB_ID ..."
-          gcloud dataflow jobs drain "$JOB_ID" \
-            --project="${{ env.PROJECT_ID }}" \
-            --region="${{ env.REGION }}"
+  #         echo "Draining job: $JOB_ID ..."
+  #         gcloud dataflow jobs drain "$JOB_ID" \
+  #           --project="${{ env.PROJECT_ID }}" \
+  #           --region="${{ env.REGION }}"
 
-          echo "Waiting for drain to complete..."
-          while true; do
-            STATE=$(gcloud dataflow jobs describe "$JOB_ID" \
-              --project="${{ env.PROJECT_ID }}" \
-              --region="${{ env.REGION }}" \
-              --format=value\(currentState\))
-            echo "  Current state: $STATE"
-            if [ "$STATE" = "JOB_STATE_DRAINED" ] || \
-               [ "$STATE" = "JOB_STATE_DONE" ]    || \
-               [ "$STATE" = "JOB_STATE_CANCELLED" ]; then
-              echo "✅ Job drained successfully."
-              break
-            fi
-            sleep 30
-          done
+  #         echo "Waiting for drain to complete..."
+  #         while true; do
+  #           STATE=$(gcloud dataflow jobs describe "$JOB_ID" \
+  #             --project="${{ env.PROJECT_ID }}" \
+  #             --region="${{ env.REGION }}" \
+  #             --format=value\(currentState\))
+  #           echo "  Current state: $STATE"
+  #           if [ "$STATE" = "JOB_STATE_DRAINED" ] || \
+  #              [ "$STATE" = "JOB_STATE_DONE" ]    || \
+  #              [ "$STATE" = "JOB_STATE_CANCELLED" ]; then
+  #             echo "✅ Job drained successfully."
+  #             break
+  #           fi
+  #           sleep 30
+  #         done
 
-      - name: Deploy Dataflow Flex Template
-        run: |
-          TEMPLATE="${{ env.TEMPLATE_BUCKET }}/oden-gcs-parquet-${{ github.run_id }}.json"
+  #     - name: Deploy Dataflow Flex Template
+  #       run: |
+  #         TEMPLATE="${{ env.TEMPLATE_BUCKET }}/oden-gcs-parquet-${{ github.run_id }}.json"
 
-          gcloud dataflow flex-template run "${{ env.JOB_NAME }}" \
-            --project="${{ env.PROJECT_ID }}" \
-            --region="${{ env.REGION }}" \
-            --template-file-gcs-location="$TEMPLATE" \
-            --service-account-email="${{ env.SERVICE_ACCOUNT }}" \
-            --network="${{ env.NETWORK }}" \
-            --subnetwork="${{ env.SUBNETWORK }}" \
-            --disable-public-ips \
-            --enable-streaming-engine \
-            --parameters=subscription="${{ env.SUBSCRIPTION }}" \
-            --parameters=bq_table_ok="${{ env.BQ_TABLE_OK }}" \
-            --parameters=bq_table_err="${{ env.BQ_TABLE_ERR }}" \
-            --parameters=gcs_output_path="gs://sw-rds-dataflow-gcs-itp/output/" \
-            --parameters=temp_location="gs://sw-rds-dataflow-gcs-itp/tmp" \
-            --parameters=staging_location="gs://sw-rds-dataflow-gcs-itp/staging"
+  #         gcloud dataflow flex-template run "${{ env.JOB_NAME }}" \
+  #           --project="${{ env.PROJECT_ID }}" \
+  #           --region="${{ env.REGION }}" \
+  #           --template-file-gcs-location="$TEMPLATE" \
+  #           --service-account-email="${{ env.SERVICE_ACCOUNT }}" \
+  #           --network="${{ env.NETWORK }}" \
+  #           --subnetwork="${{ env.SUBNETWORK }}" \
+  #           --disable-public-ips \
+  #           --enable-streaming-engine \
+  #           --parameters=subscription="${{ env.SUBSCRIPTION }}" \
+  #           --parameters=bq_table_ok="${{ env.BQ_TABLE_OK }}" \
+  #           --parameters=bq_table_err="${{ env.BQ_TABLE_ERR }}" \
+  #           --parameters=gcs_output_path="gs://sw-rds-dataflow-gcs-itp/output/" \
+  #           --parameters=temp_location="gs://sw-rds-dataflow-gcs-itp/tmp" \
+  #           --parameters=staging_location="gs://sw-rds-dataflow-gcs-itp/staging"
 
-      - name: Confirm Dataflow Job Launched
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo " ✅ Docker image pushed to Artifact Registry"
-          echo " ✅ Flex Template uploaded to GCS"
-          echo " ✅ Dataflow job deployed"
-          echo " 🔗 https://console.cloud.google.com/dataflow/jobs?project=${{ env.PROJECT_ID }}"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          gcloud dataflow jobs list \
-            --region="${{ env.REGION }}" \
-            --project="${{ env.PROJECT_ID }}" \
-            --filter="name:${{ env.JOB_NAME }}" \
-            --format="table(id, name, currentState, startTime)"
+  #     - name: Confirm Dataflow Job Launched
+  #       run: |
+  #         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  #         echo " ✅ Docker image pushed to Artifact Registry"
+  #         echo " ✅ Flex Template uploaded to GCS"
+  #         echo " ✅ Dataflow job deployed"
+  #         echo " 🔗 https://console.cloud.google.com/dataflow/jobs?project=${{ env.PROJECT_ID }}"
+  #         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  #         gcloud dataflow jobs list \
+  #           --region="${{ env.REGION }}" \
+  #           --project="${{ env.PROJECT_ID }}" \
+  #           --filter="name:${{ env.JOB_NAME }}" \
+  #           --format="table(id, name, currentState, startTime)"
