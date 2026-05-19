@@ -1,7 +1,7 @@
 {
   "project_id":      "sw-dev-prj-sandbox",
   "region":          "us-east4",
-  "job_name":        "sw-oden-pubsub-to-gcs",
+  "job_name":        "sw-oden-pubsub-to-gcs-demo",
   "network":         "dataflow-network",
   "subnetwork":      "regions/us-east4/subnetworks/dataflow-subnet",
   "service_account": "dataflow-runner@sw-dev-prj-sandbox.iam.gserviceaccount.com",
