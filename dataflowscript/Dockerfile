@@ -1,4 +1,4 @@
-FROM gcr.io/dataflow-templates-base/python312-template-launcher-base:latest
+FROM gcr.io/dataflow-templates-base/python313-template-launcher-base:latest
 RUN apt-get update -qq && \
     apt-get upgrade -y --no-install-recommends && \
     apt-get install -y --no-install-recommends \
