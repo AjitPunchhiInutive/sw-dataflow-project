@@ -2,7 +2,7 @@
 project_id:          sw-dev-prj-sandbox 
 log_project_id:      sw-dev-prj-sandbox
 scan_name:           customer-orders-profile
-location:            us-central1
+region :             us-east4
 
 # Source table
 bq_source_project:   sw-dev-prj-sandbox
@@ -11,7 +11,6 @@ bq_source_table:     historian_stream
 
 # Execution
 execution_schedule:         "TZ=UTC 0 2 * * *"
-execution_service_account:  "github-actions@melodic-furnace-403022.iam.gserviceaccount.com"
 
 # Profile spec
 sampling_percent:  20
