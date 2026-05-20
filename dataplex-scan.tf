@@ -5,7 +5,7 @@ module "data_profile_scan" {
   region     = "us-east4"
 
   data = {
-    resource = "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/pubsub_gcs_dataflow/tables/historian_stream."
+    resource = "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/pubsub_gcs_dataflow/tables/historian_stream"
   }
 
   #execution_schedule = var.execution_schedule
