@@ -4,13 +4,32 @@ FROM python:3.11-alpine AS builder
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
+# FIX CVE-2026-34743: upgrade xz to >=5.8.3 (heap buffer overflow in lzma_index_append)
 RUN apk add --no-cache \
         git \
         gcc \
         musl-dev \
         libffi-dev \
         ca-certificates \
-        bash
+        bash \
+    && apk upgrade --no-cache xz
+
+# FIX CVE-2025-8869, CVE-2026-1703, CVE-2026-3219: pip>=26.1 (tar symlink traversal,
+#     wheel path traversal, concatenated tar+ZIP confusion)
+# FIX CVE-2026-23949, CVE-2026-6357: setuptools>=80.10.1 (jaraco.context Zip Slip,
+#     PackageIndex path traversal)
+# FIX CVE-2026-24049: wheel>=0.46.2 (arbitrary file permission modification)
+RUN pip install --no-cache-dir \
+        "pip>=26.1" \
+        "setuptools>=80.10.1" \
+        "wheel>=0.46.2"
+
+# FIX CVE-2026-29790: dbt-common>=1.37.3 (os.path.commonprefix() path traversal in safe_extract)
+# FIX CVE-2025-58367, CVE-2026-33155: deepdiff>=8.6.2 (class pollution RCE + memory exhaustion DoS)
+# Install pinned safe versions of transitive dependencies BEFORE dbt itself
+RUN pip install --no-cache-dir --prefix=/install \
+        "dbt-common>=1.37.3" \
+        "deepdiff>=8.6.2"
 
 RUN pip install --no-cache-dir --prefix=/install \
     dbt-core==1.9.1 \
@@ -37,10 +56,18 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DBT_LOG_PATH=/dbt/logs \
     DBT_PROFILES_DIR=/dbt
 
-# bash is required — entrypoint.sh uses #!/bin/bash
+# FIX CVE-2026-34743 in runtime image as well: upgrade xz
 RUN apk add --no-cache \
         ca-certificates \
-        bash
+        bash \
+    && apk upgrade --no-cache xz
+
+# Upgrade pip/setuptools/wheel in the runtime Python environment too
+# so any runtime pip invocations (e.g. dbt deps) use patched versions
+RUN pip install --no-cache-dir \
+        "pip>=26.1" \
+        "setuptools>=80.10.1" \
+        "wheel>=0.46.2"
 
 # Create non-root user BEFORE setting permissions
 RUN adduser -D -H -s /sbin/nologin dbt
@@ -68,12 +95,6 @@ COPY entrypoint.sh /entrypoint.sh
 RUN sed -i 's/\r//' /entrypoint.sh && \
     chmod +x /entrypoint.sh
 
-# ── Health Check ──────────────────────────────────────────────────────────────
-# Cloud Run Jobs have no HTTP endpoint so we probe key binaries directly:
-#   1. dbt binary exists and is executable
-#   2. entrypoint.sh exists and is executable
-#   3. python is available
-# start-period=10s gives the container time to initialise before first check.
 HEALTHCHECK --interval=30s \
             --timeout=10s \
             --start-period=10s \
@@ -85,7 +106,6 @@ HEALTHCHECK --interval=30s \
         dbt --version > /dev/null 2>&1    || exit 1 \
     "
 
-# Drop to non-root AFTER all permission setup is done
 USER dbt
 
 WORKDIR /dbt
