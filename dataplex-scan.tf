@@ -7,8 +7,6 @@ module "data_profile_scan" {
     resource = "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/pubsub_gcs_dataflow/tables/historian_stream"
   }
   # execution_schedule = "TZ=UTC 0 2 * * *"
-  credential_type           = "SERVICE_ACCOUNT"
-  execution_service_account = "dataplex-scanner@sw-dev-prj-sandbox.iam.gserviceaccount.com"
   data_profile_spec = {
     sampling_percent = 20
     row_filter       = null   # null = scan all rows
