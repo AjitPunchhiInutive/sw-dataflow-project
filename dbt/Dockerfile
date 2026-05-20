@@ -10,7 +10,7 @@ RUN apk add --no-cache \
         libffi-dev \
         ca-certificates \
         bash \
-    && apk upgrade --no-cache xz
+        'xz>=5.8.3'
 
 # CVE-2025-8869, CVE-2026-1703, CVE-2026-3219 → pip>=26.1
 # CVE-2026-23949, CVE-2026-6357              → setuptools>=80.10.1
