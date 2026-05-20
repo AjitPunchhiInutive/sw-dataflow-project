@@ -25,7 +25,7 @@ RUN pip install --no-cache-dir --prefix=/install \
         "deepdiff>=8.6.2"
 
 RUN pip install --no-cache-dir --prefix=/install \
-    dbt-core==1.11.10 \
+    dbt-core==1.11.1 \
     dbt-bigquery==1.11.0
 
 WORKDIR /dbt
