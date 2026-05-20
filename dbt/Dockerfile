@@ -4,29 +4,42 @@ FROM python:3.14.4-alpine3.22 AS builder
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# FIX CVE-2026-34743: upgrade xz to >=5.8.3 (heap buffer overflow in lzma_index_append)
-RUN apk update && apk upgrade --no-cache xz
+# BUG FIX #3: restore build toolchain that was missing from this stage.
+# gcc + musl-dev are required to compile C extensions (grpcio, protobuf, etc.)
+# that dbt-bigquery pulls in. Without them, `pip install dbt-bigquery` fails.
+# CVE-2026-34743: `apk upgrade xz` patches the heap buffer overflow in
+# lzma_index_append() (xz >=5.8.3).
+RUN apk add --no-cache \
+        git \
+        gcc \
+        musl-dev \
+        libffi-dev \
+        ca-certificates \
+        bash \
+    && apk upgrade --no-cache xz
 
-# FIX CVE-2025-8869, CVE-2026-1703, CVE-2026-3219: pip>=26.1 (tar symlink traversal,
-#     wheel path traversal, concatenated tar+ZIP confusion)
-# FIX CVE-2026-23949, CVE-2026-6357: setuptools>=80.10.1 (jaraco.context Zip Slip,
-#     PackageIndex path traversal)
-# FIX CVE-2026-24049: wheel>=0.46.2 (arbitrary file permission modification)
+# CVE-2025-8869, CVE-2026-1703, CVE-2026-3219 → pip>=26.1
+# CVE-2026-23949, CVE-2026-6357          → setuptools>=80.10.1
+# CVE-2026-24049                          → wheel>=0.46.2
 RUN pip install --no-cache-dir \
         "pip>=26.1" \
         "setuptools>=80.10.1" \
         "wheel>=0.46.2"
 
-# FIX CVE-2026-29790: dbt-common>=1.37.3 (os.path.commonprefix() path traversal in safe_extract)
-# FIX CVE-2025-58367, CVE-2026-33155: deepdiff>=8.6.2 (class pollution RCE + memory exhaustion DoS)
-# Install pinned safe versions of transitive dependencies BEFORE dbt itself
+# CVE-2026-29790  → dbt-common>=1.37.3  (os.path.commonprefix path traversal)
+# CVE-2025-58367,
+# CVE-2026-33155  → deepdiff>=8.6.2     (class pollution RCE + memory exhaustion DoS)
+# Pre-install patched floor versions BEFORE dbt so pip won't downgrade them.
 RUN pip install --no-cache-dir --prefix=/install \
         "dbt-common>=1.37.3" \
         "deepdiff>=8.6.2"
 
+# VERSION FIX: dbt-core 1.11.1 is yanked ("Issues with installs in some
+# environments"). Use 1.11.10 — the latest stable patch on the 1.11.x line.
+# dbt-bigquery 1.11.1 is the matching adapter on the Compatible release track.
 RUN pip install --no-cache-dir --prefix=/install \
-    dbt-core==1.11.1 \
-    dbt-bigquery==1.11.0
+        "dbt-core==1.11.10" \
+        "dbt-bigquery==1.11.1"
 
 WORKDIR /dbt
 COPY dbt_project.yml .
@@ -38,7 +51,10 @@ COPY tests/          tests/
 COPY seeds/          seeds/
 COPY snapshots/      snapshots/
 
-RUN PYTHONPATH=/install/lib/python3.11/site-packages \
+# BUG FIX #2: python3.11 → python3.14 to match the python:3.14.4-alpine3.22
+# base image. Using the wrong minor version means Python silently skips the
+# entire /install/lib/python3.11/site-packages tree, making dbt invisible.
+RUN PYTHONPATH=/install/lib/python3.14/site-packages \
     /install/bin/dbt deps --profiles-dir .
 
 # ── Stage 2: Runtime ──────────────────────────────────────────────────────────
@@ -49,33 +65,39 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DBT_LOG_PATH=/dbt/logs \
     DBT_PROFILES_DIR=/dbt
 
-# FIX CVE-2026-34743 in runtime image as well: upgrade xz
+# CVE-2026-34743: patch xz in the runtime image independently of the builder —
+# each FROM starts from a fresh base layer with its own copy of the OS packages.
 RUN apk add --no-cache \
         ca-certificates \
         bash \
     && apk upgrade --no-cache xz
 
-# Upgrade pip/setuptools/wheel in the runtime Python environment too
-# so any runtime pip invocations (e.g. dbt deps) use patched versions
+# Upgrade pip/setuptools/wheel in the runtime image too.
+# The entrypoint calls `dbt deps`, which may invoke pip internally.
+# This image's pip comes from the base layer, not from the builder stage.
 RUN pip install --no-cache-dir \
         "pip>=26.1" \
         "setuptools>=80.10.1" \
         "wheel>=0.46.2"
 
-RUN pip install --no-cache-dir --prefix=/install \
+# BUG FIX #4: removed `--prefix=/install` that was here before.
+# With --prefix=/install, packages land in /install/lib/python3.14/site-packages
+# but nothing adds /install to PYTHONPATH at runtime, so they are never found.
+# Installing globally (no --prefix) puts them in the real site-packages tree.
+RUN pip install --no-cache-dir \
         "dbt-common>=1.37.3" \
         "deepdiff>=8.6.2"
-
 
 # Create non-root user BEFORE setting permissions
 RUN adduser -D -H -s /sbin/nologin dbt
 
+# Copy the full dbt + dependency tree built in Stage 1
 COPY --from=builder /install /usr/local
 
-# Copy dbt project owned by dbt user from the start
+# Copy dbt project, pre-owned by the dbt user
 COPY --chown=dbt:dbt --from=builder /dbt /dbt
 
-# Create all directories dbt needs to write to at runtime
+# Create writable runtime directories
 RUN mkdir -p \
         /dbt/logs \
         /dbt/target \
