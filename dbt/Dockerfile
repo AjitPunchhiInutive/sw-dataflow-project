@@ -69,6 +69,11 @@ RUN pip install --no-cache-dir \
         "setuptools>=80.10.1" \
         "wheel>=0.46.2"
 
+RUN pip install --no-cache-dir --prefix=/install \
+        "dbt-common>=1.37.3" \
+        "deepdiff>=8.6.2"
+
+
 # Create non-root user BEFORE setting permissions
 RUN adduser -D -H -s /sbin/nologin dbt
 
