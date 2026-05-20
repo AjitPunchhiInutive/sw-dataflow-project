@@ -1,18 +1,11 @@
 # ── Stage 1: Builder ──────────────────────────────────────────────────────────
-FROM python:3.11-alpine AS builder
+FROM python:3.14.4-alpine3.22 AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 # FIX CVE-2026-34743: upgrade xz to >=5.8.3 (heap buffer overflow in lzma_index_append)
-RUN apk add --no-cache \
-        git \
-        gcc \
-        musl-dev \
-        libffi-dev \
-        ca-certificates \
-        bash \
-    && apk upgrade --no-cache xz
+RUN apk update && apk upgrade --no-cache xz
 
 # FIX CVE-2025-8869, CVE-2026-1703, CVE-2026-3219: pip>=26.1 (tar symlink traversal,
 #     wheel path traversal, concatenated tar+ZIP confusion)
@@ -32,8 +25,8 @@ RUN pip install --no-cache-dir --prefix=/install \
         "deepdiff>=8.6.2"
 
 RUN pip install --no-cache-dir --prefix=/install \
-    dbt-core==1.9.1 \
-    dbt-bigquery==1.9.0
+    dbt-core==1.11.10 \
+    dbt-bigquery==1.11.0
 
 WORKDIR /dbt
 COPY dbt_project.yml .
@@ -49,7 +42,7 @@ RUN PYTHONPATH=/install/lib/python3.11/site-packages \
     /install/bin/dbt deps --profiles-dir .
 
 # ── Stage 2: Runtime ──────────────────────────────────────────────────────────
-FROM python:3.11-alpine AS runtime
+FROM python:3.14.4-alpine3.22 AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
