@@ -2,7 +2,7 @@
 FROM gcr.io/dataflow-templates-base/python311-template-launcher-base:latest AS launcher
 
 # ── Stage 2: build Python dependencies (throwaway) ───────────────────
-FROM python:3.11.15-slim 
+FROM python:3.12.13-slim AS builder
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -21,7 +21,7 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r /tmp/requirements.txt
 
 # ── Stage 3: clean runtime (no build tools, no libmbedtls) ──────────
-FROM python:3.11.15-slim
+FROM python:3.12.13-slim
 
 RUN apt-get update && \
     apt-get upgrade -y --no-install-recommends && \
@@ -37,8 +37,8 @@ COPY --from=launcher \
 RUN chmod +x /opt/google/dataflow/python_template_launcher
 
 # Copy compiled Python packages from the builder — no cargo/gcc/mbedtls
-COPY --from=builder /usr/local/lib/python3.11/site-packages \
-                    /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/lib/python3.12/site-packages \
+                    /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application files
