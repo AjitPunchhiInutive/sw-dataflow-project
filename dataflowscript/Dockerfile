@@ -24,14 +24,13 @@ ENV FLEX_TEMPLATE_PYTHON_REQUIREMENTS_FILE="/template/requirements.txt"
 COPY requirements.txt      /template/requirements.txt
 COPY oden_pubsub_to_gcs.py /template/oden_pubsub_to_gcs.py
 
-RUN pip install --no-cache-dir --root-user-action=ignore \
-        --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir --root-user-action=ignore \
-        -r /template/requirements.txt
-
 RUN chown -R appuser:appgroup /template && \
     chmod 755 /template && \
     chmod 644 /template/requirements.txt /template/oden_pubsub_to_gcs.py
+
+RUN mkdir -p /var/log/dataflow/template_launcher && \
+    chown -R appuser:appgroup /var/log/dataflow && \
+    chmod -R 0755 /var/log/dataflow
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD test -x /opt/google/dataflow/python_template_launcher || exit 1
