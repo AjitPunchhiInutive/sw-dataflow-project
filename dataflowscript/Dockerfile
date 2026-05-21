@@ -2,12 +2,18 @@
 FROM gcr.io/dataflow-templates-base/python311-template-launcher-base:latest AS launcher
 
 # ── Stage 2: minimal, patched runtime you control ────────────────────
-FROM apache/beam_python3.11_sdk:2.74.0
+FROM python:3.11.15-alpine3.22
+#ROM apache/beam_python3.11_sdk:2.74.0
 
 # Copy just the Dataflow launcher binary — none of the base image's OS cruft
 COPY --from=launcher /opt/google/dataflow/python_template_launcher \
                      /opt/google/dataflow/python_template_launcher
 COPY oden_pubsub_to_gcs.py /template/
+
+RUN apk update && \
+    apk upgrade && \
+    apk add --no-cache openjdk17-jre-headless && \
+    rm -rf /tmp/* /var/tmp/*
 
 RUN groupadd --gid 1001 appgroup && \
     useradd --uid 1001 --gid appgroup \
