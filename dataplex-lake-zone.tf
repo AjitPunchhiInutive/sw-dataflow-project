@@ -4,7 +4,7 @@ module "dataplex_manufacturing" {
   prefix     = "dev"
   project_id = "sw-dev-prj-sandbox"
   region     = "us-east4"
-  description = "The Manufacturing Lake  defines the governance boundary for Southwire manufacturing data. It provides a consistent structure for organizing and discovering manufacturing data across raw and curated lifecycle stages."
+  #description = "The Manufacturing Lake  defines the governance boundary for Southwire manufacturing data. It provides a consistent structure for organizing and discovering manufacturing data across raw and curated lifecycle stages."
 
   zones = {
     # ── RDS Zone — RAW | sw-dev-udp-rds ───────────────────────────────────
