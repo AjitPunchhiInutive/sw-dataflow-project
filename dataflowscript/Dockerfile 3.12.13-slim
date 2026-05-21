@@ -1,6 +1,6 @@
 FROM gcr.io/dataflow-templates-base/python311-template-launcher-base:latest AS launcher
 
-FROM apache/beam_python3.12_sdk:2.74.0
+FROM python:3.12.13-slim
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
