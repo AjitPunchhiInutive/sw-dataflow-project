@@ -4,7 +4,6 @@ module "dataplex_manufacturing" {
   prefix     = "dev"
   project_id = "sw-dev-prj-sandbox"
   region     = "us-east4"
-  #description = "The Manufacturing Lake  defines the governance boundary for Southwire manufacturing data. It provides a consistent structure for organizing and discovering manufacturing data across raw and curated lifecycle stages."
 
   zones = {
     # ── RDS Zone — RAW | sw-dev-udp-rds ───────────────────────────────────
@@ -12,7 +11,7 @@ module "dataplex_manufacturing" {
       type      = "RAW"
       discovery = true
       assets = {
-        bq_rds = {
+        bq-rds = {                        # ← was bq_rds
           resource_name          = "rds"
           cron_schedule          = "0 0 * * *"
           discovery_spec_enabled = true
@@ -26,7 +25,7 @@ module "dataplex_manufacturing" {
       type      = "CURATED"
       discovery = true
       assets = {
-        bq_eds = {
+        bq-eds = {                        # ← was bq_eds (the failing key)
           resource_name          = "eds"
           cron_schedule          = null
           discovery_spec_enabled = false
@@ -40,7 +39,7 @@ module "dataplex_manufacturing" {
       type      = "CURATED"
       discovery = true
       assets = {
-        bq_ods = {
+        bq-ods = {                        # ← was bq_ods
           resource_name          = "ods"
           cron_schedule          = null
           discovery_spec_enabled = false
