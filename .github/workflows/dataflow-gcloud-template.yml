@@ -116,23 +116,23 @@ jobs:
             --format="table(id, name, currentState, startTime)"
  
   # ── Job 2: Approval ───────────────────────────────────────────────────────
-  approval:
-    name: "Step 2 | Approval Gate"
-    needs: plan-dataflow-template
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    environment:
-      name: terraform
-      url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  # approval:
+  #   name: "Step 2 | Approval Gate"
+  #   needs: plan-dataflow-template
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     contents: read
+  #   environment:
+  #     name: terraform
+  #     url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
  
-    steps:
-      - name: Approval Required
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Review the plan above, then approve"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Approval granted - proceeding to build"
+  #   steps:
+  #     - name: Approval Required
+  #       run: |
+  #         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  #         echo "  Review the plan above, then approve"
+  #         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  #         echo "  Approval granted - proceeding to build"
  
   # ── Job 3: Build ──────────────────────────────────────────────────────────
   build-dataflow-template:
