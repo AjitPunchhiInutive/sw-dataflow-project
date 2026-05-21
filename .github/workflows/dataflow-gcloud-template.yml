@@ -137,7 +137,6 @@ jobs:
   # ── Job 3: Build ──────────────────────────────────────────────────────────
   build-dataflow-template:
     name: "Step 3 | Build Dataflow Flex Template"
-    needs: approval
     runs-on: ubuntu-latest
     permissions:
       contents: read
