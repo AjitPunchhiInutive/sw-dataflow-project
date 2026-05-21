@@ -2,7 +2,7 @@
 FROM gcr.io/dataflow-templates-base/python311-template-launcher-base:latest AS launcher
 
 # ── Stage 2: build Python dependencies (throwaway) ───────────────────
-FROM python:3.11.15-slim AS builder
+FROM python:3.11.15-slim As builder
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -17,18 +17,12 @@ RUN apt-get update && \
 
 COPY requirements.txt /tmp/requirements.txt
 
-# Pin minimum versions to close CVE-2026-6357, CVE-2026-24049, CVE-2026-23949
-RUN pip install --no-cache-dir --upgrade \
-        "pip>=26.1" \
-        "setuptools>=78.1.1" \
-        "wheel>=0.46.2" \
-        "jaraco.context>=6.1.0" && \
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r /tmp/requirements.txt
 
 # ── Stage 3: clean runtime (no build tools, no libmbedtls) ──────────
 FROM python:3.11.15-slim
 
-# apt-get upgrade pulls patched libnss3 for CVE-2026-6772 (if Debian has shipped it)
 RUN apt-get update && \
     apt-get upgrade -y --no-install-recommends && \
     apt-get install -y --no-install-recommends \
@@ -42,7 +36,7 @@ COPY --from=launcher \
     /opt/google/dataflow/python_template_launcher
 RUN chmod +x /opt/google/dataflow/python_template_launcher
 
-# Copy compiled Python packages from the builder
+# Copy compiled Python packages from the builder — no cargo/gcc/mbedtls
 COPY --from=builder /usr/local/lib/python3.11/site-packages \
                     /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
