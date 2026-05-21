@@ -36,7 +36,7 @@ COPY tests/          tests/
 COPY seeds/          seeds/
 COPY snapshots/      snapshots/
 
-RUN PYTHONPATH=/install/lib/python3.13/site-packages \
+RUN PYTHONPATH=/install/lib/python3.11/site-packages \
     /install/bin/dbt deps --profiles-dir .
 
 # ── Stage 2: Runtime ──────────────────────────────────────────────────────────
