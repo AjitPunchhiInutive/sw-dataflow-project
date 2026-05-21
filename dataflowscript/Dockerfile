@@ -1,10 +1,11 @@
+# ── Stage 1: Dataflow launcher binary ─────────────────────────────────
 FROM gcr.io/dataflow-templates-base/python311-template-launcher-base:latest AS launcher
 
-FROM apache/beam_python3.12_sdk:2.74.0
+# ── Stage 2: build Python dependencies (throwaway) ───────────────────
+FROM python:3.12.13-slim AS builder
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        default-jre-headless \
         gcc \
         g++ \
         build-essential \
@@ -14,23 +15,35 @@ RUN apt-get update && \
         git && \
     rm -rf /var/lib/apt/lists/*
 
-RUN mkdir -p /template /opt/google/dataflow
+COPY requirements.txt /tmp/requirements.txt
 
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r /tmp/requirements.txt
+
+# ── Stage 3: clean runtime (no build tools, no libmbedtls) ──────────
+FROM python:3.12.13-slim
+
+RUN apt-get update && \
+    apt-get upgrade -y --no-install-recommends && \
+    apt-get install -y --no-install-recommends \
+        default-jre-headless && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy the launcher binary
 COPY --from=launcher \
     /opt/google/dataflow/python_template_launcher \
     /opt/google/dataflow/python_template_launcher
-
 RUN chmod +x /opt/google/dataflow/python_template_launcher
 
-COPY requirements.txt /template/requirements.txt
+# Copy compiled Python packages from the builder — no cargo/gcc/mbedtls
+COPY --from=builder /usr/local/lib/python3.12/site-packages \
+                    /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy application files
+COPY requirements.txt      /template/requirements.txt
 COPY oden_pubsub_to_gcs.py /template/oden_pubsub_to_gcs.py
-
-RUN pip install --no-cache-dir --root-user-action=ignore \
-        --upgrade pip setuptools wheel
-
-RUN pip install --no-cache-dir \
-        --root-user-action=ignore \
-        -r /template/requirements.txt
 
 ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/oden_pubsub_to_gcs.py
 ENV FLEX_TEMPLATE_PYTHON_REQUIREMENTS_FILE=/template/requirements.txt
