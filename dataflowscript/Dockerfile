@@ -17,24 +17,26 @@ RUN apt-get update && \
 
 COPY requirements.txt /tmp/requirements.txt
 
-# Pin minimum versions to close CVE-2026-6357, CVE-2026-24049, CVE-2026-23949
-RUN pip install --no-cache-dir --upgrade \
-        "pip>=26.1" \
-        "setuptools>=78.1.1" \
-        "wheel>=0.46.2" \
-        "jaraco.context>=6.1.0" && \
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r /tmp/requirements.txt
 
 # ── Stage 3: clean runtime (no build tools, no libmbedtls) ──────────
 FROM python:3.11.15-slim
 
-# apt-get upgrade pulls patched libnss3 for CVE-2026-6772 (if Debian has shipped it)
 RUN apt-get update && \
     apt-get upgrade -y --no-install-recommends && \
     apt-get install -y --no-install-recommends \
         default-jre-headless && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+# Create non-root user and group
+RUN groupadd --gid 1001 appgroup && \
+    useradd --uid 1001 \
+            --gid appgroup \
+            --no-create-home \
+            --shell /sbin/nologin \
+            appuser
 
 # Copy the launcher binary
 COPY --from=launcher \
@@ -47,12 +49,23 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages \
                     /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy application files
-COPY requirements.txt      /template/requirements.txt
-COPY oden_pubsub_to_gcs.py /template/oden_pubsub_to_gcs.py
+# Copy application files with ownership set at copy time
+COPY --chown=appuser:appgroup requirements.txt      /template/requirements.txt
+COPY --chown=appuser:appgroup oden_pubsub_to_gcs.py /template/oden_pubsub_to_gcs.py
+
+# Tighten permissions: owner+group read/execute on dir, read-only on files
+RUN chmod 550 /template && \
+    chmod 440 /template/requirements.txt \
+              /template/oden_pubsub_to_gcs.py
 
 ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/oden_pubsub_to_gcs.py
 ENV FLEX_TEMPLATE_PYTHON_REQUIREMENTS_FILE=/template/requirements.txt
+
+HEALTHCHECK --interval=30s \
+            --timeout=10s \
+            --start-period=15s \
+            --retries=3 \
+    CMD test -x /opt/google/dataflow/python_template_launcher || exit 1
 
 WORKDIR /template
 
