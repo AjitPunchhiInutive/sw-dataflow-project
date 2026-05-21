@@ -9,10 +9,10 @@ COPY --from=launcher /opt/google/dataflow/python_template_launcher \
                      /opt/google/dataflow/python_template_launcher
 COPY oden_pubsub_to_gcs.py /template/
 
-RUN apt-get update -qq && \
-    apt-get upgrade -y --no-install-recommends && \
-    apt-get install -y --no-install-recommends default-jre-headless && \
-    apt-get clean && \
+RUN apk update -qq && \
+    apk upgrade -y --no-install-recommends && \
+    apk install -y --no-install-recommends default-jre-headless && \
+    apk clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN groupadd --gid 1001 appgroup && \
