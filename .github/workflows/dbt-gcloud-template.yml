@@ -1,551 +1,551 @@
-name: Build DBT Image for Testing
+# name: Build DBT Image for Testing
 
-on:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'dbt/**'
-  workflow_dispatch:
+# on:
+#   pull_request:
+#     branches:
+#       - main
+#     paths:
+#       - 'dbt/**'
+#   workflow_dispatch:
 
-env:
-  CONFIG_FILE: ./dbt/configs/dev.yml   # ← single source of truth
+# env:
+#   CONFIG_FILE: ./dbt/configs/dev.yml   # ← single source of truth
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Job 1 │ Plan
-# ══════════════════════════════════════════════════════════════════════════════
-jobs:
+# # ══════════════════════════════════════════════════════════════════════════════
+# # Job 1 │ Plan
+# # ══════════════════════════════════════════════════════════════════════════════
+# jobs:
 
-  plan:
-    name: "Step 1 | Show Deployment Plan"
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
+#   plan:
+#     name: "Step 1 | Show Deployment Plan"
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: read
+#       id-token: write
 
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+#     steps:
+#       - name: Checkout Code
+#         uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0
 
-      - name: Install yq
-        run: |
-          sudo wget -qO /usr/local/bin/yq \
-            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-          sudo chmod +x /usr/local/bin/yq
+#       - name: Install yq
+#         run: |
+#           sudo wget -qO /usr/local/bin/yq \
+#             https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+#           sudo chmod +x /usr/local/bin/yq
 
-      - name: Load Config
-        run: |
-          CONFIG=${{ env.CONFIG_FILE }}
-          echo "PROJECT_ID=$(yq e '.project_id'           $CONFIG)" >> $GITHUB_ENV
-          echo "REGION=$(yq e '.region'                   $CONFIG)" >> $GITHUB_ENV
-          echo "BQ_LOCATION=$(yq e '.bq_location'         $CONFIG)" >> $GITHUB_ENV
-          echo "ENVIRONMENT=$(yq e '.environment'         $CONFIG)" >> $GITHUB_ENV
-          echo "DBT_TARGET=$(yq e '.dbt_target'           $CONFIG)" >> $GITHUB_ENV
-          echo "DATASET_PREFIX=$(yq e '.dataset_prefix'   $CONFIG)" >> $GITHUB_ENV
-          echo "JOB_NAME=$(yq e '.job_name'               $CONFIG)" >> $GITHUB_ENV
-          echo "REPOSITORY=$(yq e '.ar_repo'              $CONFIG)" >> $GITHUB_ENV
-          echo "IMAGE_NAME=$(yq e '.image_name'           $CONFIG)" >> $GITHUB_ENV
-          echo "SERVICE_ACCOUNT=$(yq e '.service_account' $CONFIG)" >> $GITHUB_ENV
+#       - name: Load Config
+#         run: |
+#           CONFIG=${{ env.CONFIG_FILE }}
+#           echo "PROJECT_ID=$(yq e '.project_id'           $CONFIG)" >> $GITHUB_ENV
+#           echo "REGION=$(yq e '.region'                   $CONFIG)" >> $GITHUB_ENV
+#           echo "BQ_LOCATION=$(yq e '.bq_location'         $CONFIG)" >> $GITHUB_ENV
+#           echo "ENVIRONMENT=$(yq e '.environment'         $CONFIG)" >> $GITHUB_ENV
+#           echo "DBT_TARGET=$(yq e '.dbt_target'           $CONFIG)" >> $GITHUB_ENV
+#           echo "DATASET_PREFIX=$(yq e '.dataset_prefix'   $CONFIG)" >> $GITHUB_ENV
+#           echo "JOB_NAME=$(yq e '.job_name'               $CONFIG)" >> $GITHUB_ENV
+#           echo "REPOSITORY=$(yq e '.ar_repo'              $CONFIG)" >> $GITHUB_ENV
+#           echo "IMAGE_NAME=$(yq e '.image_name'           $CONFIG)" >> $GITHUB_ENV
+#           echo "SERVICE_ACCOUNT=$(yq e '.service_account' $CONFIG)" >> $GITHUB_ENV
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          project_id:                 ${{ secrets.GCP_PROJECT_ID }}
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+#       - name: Authenticate to Google Cloud
+#         uses: google-github-actions/auth@v2
+#         with:
+#           project_id:                 ${{ secrets.GCP_PROJECT_ID }}
+#           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+#           service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
 
-      - name: Setup GCloud CLI
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          version: 'latest'
+#       - name: Setup GCloud CLI
+#         uses: google-github-actions/setup-gcloud@v2
+#         with:
+#           version: 'latest'
 
-      - name: Show Deployment Plan
-        run: |
-          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.run_id }}"
+#       - name: Show Deployment Plan
+#         run: |
+#           IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.run_id }}"
 
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  DBT Cloud Run Job Deployment Plan"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Project           : ${{ env.PROJECT_ID }}"
-          echo "  Region            : ${{ env.REGION }}"
-          echo "  Artifact Registry : ${{ env.REPOSITORY }}"
-          echo "  Image             : $IMAGE"
-          echo "  Dockerfile        : ./dbt/Dockerfile"
-          echo "  Cloud Run Job     : ${{ env.JOB_NAME }}"
-          echo "  Service Account   : ${{ env.SERVICE_ACCOUNT }}"
-          echo "  Environment       : ${{ env.ENVIRONMENT }}"
-          echo "  DBT Target        : ${{ env.DBT_TARGET }}"
-          echo "  Dataset Prefix    : ${{ env.DATASET_PREFIX }}"
-          echo "  BQ Location       : ${{ env.BQ_LOCATION }}"
-          echo "  Triggered By      : ${{ github.actor }}"
-          echo "  Run ID            : ${{ github.run_id }}"
-          echo "  Branch            : ${{ github.head_ref || github.ref_name }}"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  DBT Cloud Run Job Deployment Plan"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  Project           : ${{ env.PROJECT_ID }}"
+#           echo "  Region            : ${{ env.REGION }}"
+#           echo "  Artifact Registry : ${{ env.REPOSITORY }}"
+#           echo "  Image             : $IMAGE"
+#           echo "  Dockerfile        : ./dbt/Dockerfile"
+#           echo "  Cloud Run Job     : ${{ env.JOB_NAME }}"
+#           echo "  Service Account   : ${{ env.SERVICE_ACCOUNT }}"
+#           echo "  Environment       : ${{ env.ENVIRONMENT }}"
+#           echo "  DBT Target        : ${{ env.DBT_TARGET }}"
+#           echo "  Dataset Prefix    : ${{ env.DATASET_PREFIX }}"
+#           echo "  BQ Location       : ${{ env.BQ_LOCATION }}"
+#           echo "  Triggered By      : ${{ github.actor }}"
+#           echo "  Run ID            : ${{ github.run_id }}"
+#           echo "  Branch            : ${{ github.head_ref || github.ref_name }}"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-      - name: Preview Existing Cloud Run Job
-        run: |
-          echo "Current Cloud Run Job Status:"
-          gcloud run jobs describe "${{ env.JOB_NAME }}" \
-            --region="${{ env.REGION }}" \
-            --project="${{ env.PROJECT_ID }}" \
-            --format="table(
-                metadata.name,
-                spec.template.spec.template.spec.containers[0].image,
-                spec.template.spec.template.spec.serviceAccountName,
-                metadata.creationTimestamp
-              )" 2>/dev/null \
-          || echo "  ⚠️  Job '${{ env.JOB_NAME }}' not found — will be created fresh."
+#       - name: Preview Existing Cloud Run Job
+#         run: |
+#           echo "Current Cloud Run Job Status:"
+#           gcloud run jobs describe "${{ env.JOB_NAME }}" \
+#             --region="${{ env.REGION }}" \
+#             --project="${{ env.PROJECT_ID }}" \
+#             --format="table(
+#                 metadata.name,
+#                 spec.template.spec.template.spec.containers[0].image,
+#                 spec.template.spec.template.spec.serviceAccountName,
+#                 metadata.creationTimestamp
+#               )" 2>/dev/null \
+#           || echo "  ⚠️  Job '${{ env.JOB_NAME }}' not found — will be created fresh."
 
-      # ── Cleanup ─────────────────────────────────────────────────────────────
-      # Runs on success AND failure (if: always()).
-      # 1. Revoke gcloud credentials and wipe all GCP config dirs.
-      # 2. Remove the GCP JSON key file written by google-github-actions/auth.
-      # 3. Wipe Docker credential store so the registry token doesn't linger.
-      # 4. Overwrite every config-sourced env var in $GITHUB_ENV with an empty
-      #    string — prevents later steps/jobs from reading stale values if the
-      #    runner is somehow reused.
-      # 5. Remove the checked-out workspace.
-      # ── Cleanup ─────────────────────────────────────────────────────────────
-      - name: Cleanup
-        if: always()
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Runner Cleanup"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#       # ── Cleanup ─────────────────────────────────────────────────────────────
+#       # Runs on success AND failure (if: always()).
+#       # 1. Revoke gcloud credentials and wipe all GCP config dirs.
+#       # 2. Remove the GCP JSON key file written by google-github-actions/auth.
+#       # 3. Wipe Docker credential store so the registry token doesn't linger.
+#       # 4. Overwrite every config-sourced env var in $GITHUB_ENV with an empty
+#       #    string — prevents later steps/jobs from reading stale values if the
+#       #    runner is somehow reused.
+#       # 5. Remove the checked-out workspace.
+#       # ── Cleanup ─────────────────────────────────────────────────────────────
+#       - name: Cleanup
+#         if: always()
+#         run: |
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  Runner Cleanup"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-          # ── GCP credentials ──────────────────────────────────────────────
-          echo "  Revoking gcloud credentials..."
-          gcloud auth revoke --all --quiet 2>/dev/null || true
+#           # ── GCP credentials ──────────────────────────────────────────────
+#           echo "  Revoking gcloud credentials..."
+#           gcloud auth revoke --all --quiet 2>/dev/null || true
 
-          echo "  Removing GCP credential files..."
-          rm -f  "${GOOGLE_APPLICATION_CREDENTIALS}"  2>/dev/null || true
-          rm -rf "${HOME}/.config/gcloud"             2>/dev/null || true
-          rm -rf "${HOME}/.gsutil"                    2>/dev/null || true
+#           echo "  Removing GCP credential files..."
+#           rm -f  "${GOOGLE_APPLICATION_CREDENTIALS}"  2>/dev/null || true
+#           rm -rf "${HOME}/.config/gcloud"             2>/dev/null || true
+#           rm -rf "${HOME}/.gsutil"                    2>/dev/null || true
 
-          # ── Docker credentials ───────────────────────────────────────────
-          echo "  Removing Docker credential store..."
-          rm -f  "${HOME}/.docker/config.json"        2>/dev/null || true
+#           # ── Docker credentials ───────────────────────────────────────────
+#           echo "  Removing Docker credential store..."
+#           rm -f  "${HOME}/.docker/config.json"        2>/dev/null || true
 
-          # ── Unset env vars ───────────────────────────────────────────────
-          echo "  Unsetting environment variables..."
-          unset PROJECT_ID REGION BQ_LOCATION ENVIRONMENT DBT_TARGET \
-                DATASET_PREFIX JOB_NAME REPOSITORY IMAGE_NAME         \
-                SERVICE_ACCOUNT GOOGLE_APPLICATION_CREDENTIALS         \
-                CLOUDSDK_CORE_PROJECT GCLOUD_PROJECT GOOGLE_CLOUD_PROJECT
+#           # ── Unset env vars ───────────────────────────────────────────────
+#           echo "  Unsetting environment variables..."
+#           unset PROJECT_ID REGION BQ_LOCATION ENVIRONMENT DBT_TARGET \
+#                 DATASET_PREFIX JOB_NAME REPOSITORY IMAGE_NAME         \
+#                 SERVICE_ACCOUNT GOOGLE_APPLICATION_CREDENTIALS         \
+#                 CLOUDSDK_CORE_PROJECT GCLOUD_PROJECT GOOGLE_CLOUD_PROJECT
 
-          {
-            echo "PROJECT_ID="
-            echo "REGION="
-            echo "BQ_LOCATION="
-            echo "ENVIRONMENT="
-            echo "DBT_TARGET="
-            echo "DATASET_PREFIX="
-            echo "JOB_NAME="
-            echo "REPOSITORY="
-            echo "IMAGE_NAME="
-            echo "SERVICE_ACCOUNT="
-            echo "GOOGLE_APPLICATION_CREDENTIALS="
-            echo "CLOUDSDK_CORE_PROJECT="
-            echo "GCLOUD_PROJECT="
-            echo "GOOGLE_CLOUD_PROJECT="
-          } >> $GITHUB_ENV
+#           {
+#             echo "PROJECT_ID="
+#             echo "REGION="
+#             echo "BQ_LOCATION="
+#             echo "ENVIRONMENT="
+#             echo "DBT_TARGET="
+#             echo "DATASET_PREFIX="
+#             echo "JOB_NAME="
+#             echo "REPOSITORY="
+#             echo "IMAGE_NAME="
+#             echo "SERVICE_ACCOUNT="
+#             echo "GOOGLE_APPLICATION_CREDENTIALS="
+#             echo "CLOUDSDK_CORE_PROJECT="
+#             echo "GCLOUD_PROJECT="
+#             echo "GOOGLE_CLOUD_PROJECT="
+#           } >> $GITHUB_ENV
 
-          # ── NOTE: $GITHUB_WORKSPACE is intentionally NOT removed ─────────
-          # GitHub Actions post-job hooks (checkout@v4, auth@v2, etc.) run
-          # Node.js processes after all steps complete and require the working
-          # directory to exist. Deleting it causes:
-          #   "No such file or directory" on node20/bin/node
-          # GitHub-hosted runners are ephemeral — the entire VM is destroyed
-          # at the end of the job, so workspace removal is unnecessary.
+#           # ── NOTE: $GITHUB_WORKSPACE is intentionally NOT removed ─────────
+#           # GitHub Actions post-job hooks (checkout@v4, auth@v2, etc.) run
+#           # Node.js processes after all steps complete and require the working
+#           # directory to exist. Deleting it causes:
+#           #   "No such file or directory" on node20/bin/node
+#           # GitHub-hosted runners are ephemeral — the entire VM is destroyed
+#           # at the end of the job, so workspace removal is unnecessary.
 
-          echo "  ✅ Cleanup complete"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  ✅ Cleanup complete"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Job 2 │ Approval Gate
-# ══════════════════════════════════════════════════════════════════════════════
-  approval:
-    name: "Step 2 | Approval Gate"
-    needs: plan
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    environment:
-      name: dbt-approval
-      url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+# # ══════════════════════════════════════════════════════════════════════════════
+# # Job 2 │ Approval Gate
+# # ══════════════════════════════════════════════════════════════════════════════
+#   approval:
+#     name: "Step 2 | Approval Gate"
+#     needs: plan
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: read
+#     environment:
+#       name: dbt-approval
+#       url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-    steps:
-      - name: Awaiting Approval
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Review the plan above and approve to continue"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  ✅ Approval granted — proceeding to build"
+#     steps:
+#       - name: Awaiting Approval
+#         run: |
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  Review the plan above and approve to continue"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  ✅ Approval granted — proceeding to build"
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Job 3 │ Build & Push Docker Image
-# ══════════════════════════════════════════════════════════════════════════════
-  build-and-push:
-    name: "Step 3 | Build & Push Docker Image"
-    needs: approval
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-      security-events: write
+# # ══════════════════════════════════════════════════════════════════════════════
+# # Job 3 │ Build & Push Docker Image
+# # ══════════════════════════════════════════════════════════════════════════════
+#   build-and-push:
+#     name: "Step 3 | Build & Push Docker Image"
+#     needs: approval
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: read
+#       id-token: write
+#       security-events: write
 
-    outputs:
-      image: ${{ steps.set-image.outputs.image }}
+#     outputs:
+#       image: ${{ steps.set-image.outputs.image }}
 
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+#     steps:
+#       - name: Checkout Code
+#         uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          project_id:                 ${{ secrets.GCP_PROJECT_ID }}
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+#       - name: Authenticate to Google Cloud
+#         uses: google-github-actions/auth@v2
+#         with:
+#           project_id:                 ${{ secrets.GCP_PROJECT_ID }}
+#           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+#           service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
 
-      - name: Setup GCloud CLI
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          version: 'latest'
+#       - name: Setup GCloud CLI
+#         uses: google-github-actions/setup-gcloud@v2
+#         with:
+#           version: 'latest'
 
-      - name: Install yq
-        run: |
-          sudo wget -qO /usr/local/bin/yq \
-            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-          sudo chmod +x /usr/local/bin/yq
+#       - name: Install yq
+#         run: |
+#           sudo wget -qO /usr/local/bin/yq \
+#             https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+#           sudo chmod +x /usr/local/bin/yq
 
-      - name: Load Config
-        run: |
-          CONFIG=${{ env.CONFIG_FILE }}
-          echo "PROJECT_ID=$(yq e '.project_id'           $CONFIG)" >> $GITHUB_ENV
-          echo "REGION=$(yq e '.region'                   $CONFIG)" >> $GITHUB_ENV
-          echo "BQ_LOCATION=$(yq e '.bq_location'         $CONFIG)" >> $GITHUB_ENV
-          echo "ENVIRONMENT=$(yq e '.environment'         $CONFIG)" >> $GITHUB_ENV
-          echo "DBT_TARGET=$(yq e '.dbt_target'           $CONFIG)" >> $GITHUB_ENV
-          echo "DATASET_PREFIX=$(yq e '.dataset_prefix'   $CONFIG)" >> $GITHUB_ENV
-          echo "JOB_NAME=$(yq e '.job_name'               $CONFIG)" >> $GITHUB_ENV
-          echo "REPOSITORY=$(yq e '.ar_repo'              $CONFIG)" >> $GITHUB_ENV
-          echo "IMAGE_NAME=$(yq e '.image_name'           $CONFIG)" >> $GITHUB_ENV
-          echo "SERVICE_ACCOUNT=$(yq e '.service_account' $CONFIG)" >> $GITHUB_ENV
+#       - name: Load Config
+#         run: |
+#           CONFIG=${{ env.CONFIG_FILE }}
+#           echo "PROJECT_ID=$(yq e '.project_id'           $CONFIG)" >> $GITHUB_ENV
+#           echo "REGION=$(yq e '.region'                   $CONFIG)" >> $GITHUB_ENV
+#           echo "BQ_LOCATION=$(yq e '.bq_location'         $CONFIG)" >> $GITHUB_ENV
+#           echo "ENVIRONMENT=$(yq e '.environment'         $CONFIG)" >> $GITHUB_ENV
+#           echo "DBT_TARGET=$(yq e '.dbt_target'           $CONFIG)" >> $GITHUB_ENV
+#           echo "DATASET_PREFIX=$(yq e '.dataset_prefix'   $CONFIG)" >> $GITHUB_ENV
+#           echo "JOB_NAME=$(yq e '.job_name'               $CONFIG)" >> $GITHUB_ENV
+#           echo "REPOSITORY=$(yq e '.ar_repo'              $CONFIG)" >> $GITHUB_ENV
+#           echo "IMAGE_NAME=$(yq e '.image_name'           $CONFIG)" >> $GITHUB_ENV
+#           echo "SERVICE_ACCOUNT=$(yq e '.service_account' $CONFIG)" >> $GITHUB_ENV
       
-      - name: Validate Config
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Validating loaded config values"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  PROJECT_ID      : ${{ env.PROJECT_ID }}"
-          echo "  REGION          : ${{ env.REGION }}"
-          echo "  REPOSITORY      : ${{ env.REPOSITORY }}"
-          echo "  IMAGE_NAME      : ${{ env.IMAGE_NAME }}"
-          echo "  JOB_NAME        : ${{ env.JOB_NAME }}"
-          echo "  SERVICE_ACCOUNT : ${{ env.SERVICE_ACCOUNT }}"
-          echo "  DATASET_PREFIX  : ${{ env.DATASET_PREFIX }}"
-          echo "  BQ_LOCATION     : ${{ env.BQ_LOCATION }}"
-          echo "  DBT_TARGET      : ${{ env.DBT_TARGET }}"
-          echo "  ENVIRONMENT     : ${{ env.ENVIRONMENT }}"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#       - name: Validate Config
+#         run: |
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  Validating loaded config values"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  PROJECT_ID      : ${{ env.PROJECT_ID }}"
+#           echo "  REGION          : ${{ env.REGION }}"
+#           echo "  REPOSITORY      : ${{ env.REPOSITORY }}"
+#           echo "  IMAGE_NAME      : ${{ env.IMAGE_NAME }}"
+#           echo "  JOB_NAME        : ${{ env.JOB_NAME }}"
+#           echo "  SERVICE_ACCOUNT : ${{ env.SERVICE_ACCOUNT }}"
+#           echo "  DATASET_PREFIX  : ${{ env.DATASET_PREFIX }}"
+#           echo "  BQ_LOCATION     : ${{ env.BQ_LOCATION }}"
+#           echo "  DBT_TARGET      : ${{ env.DBT_TARGET }}"
+#           echo "  ENVIRONMENT     : ${{ env.ENVIRONMENT }}"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-          ERRORS=0
-          for VAR in PROJECT_ID REGION REPOSITORY IMAGE_NAME JOB_NAME SERVICE_ACCOUNT DATASET_PREFIX BQ_LOCATION DBT_TARGET ENVIRONMENT; do
-            VALUE=$(printenv "$VAR")
-            if [[ -z "$VALUE" || "$VALUE" == "null" ]]; then
-              echo "  ❌ $VAR is empty or null — check config key in ${{ env.CONFIG_FILE }}"
-              ERRORS=$((ERRORS + 1))
-            else
-              echo "  ✅ $VAR = $VALUE"
-            fi
-          done
+#           ERRORS=0
+#           for VAR in PROJECT_ID REGION REPOSITORY IMAGE_NAME JOB_NAME SERVICE_ACCOUNT DATASET_PREFIX BQ_LOCATION DBT_TARGET ENVIRONMENT; do
+#             VALUE=$(printenv "$VAR")
+#             if [[ -z "$VALUE" || "$VALUE" == "null" ]]; then
+#               echo "  ❌ $VAR is empty or null — check config key in ${{ env.CONFIG_FILE }}"
+#               ERRORS=$((ERRORS + 1))
+#             else
+#               echo "  ✅ $VAR = $VALUE"
+#             fi
+#           done
 
-          if [[ $ERRORS -gt 0 ]]; then
-            echo ""
-            echo "  ❌ $ERRORS config value(s) failed validation — aborting."
-            exit 1
-          fi
+#           if [[ $ERRORS -gt 0 ]]; then
+#             echo ""
+#             echo "  ❌ $ERRORS config value(s) failed validation — aborting."
+#             exit 1
+#           fi
 
-          echo ""
-          echo "  ✅ All config values validated successfully"
+#           echo ""
+#           echo "  ✅ All config values validated successfully"
 
-      - name: Configure Docker for Artifact Registry
-        run: |
-          gcloud auth configure-docker "${{ env.REGION }}-docker.pkg.dev" --quiet
+#       - name: Configure Docker for Artifact Registry
+#         run: |
+#           gcloud auth configure-docker "${{ env.REGION }}-docker.pkg.dev" --quiet
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+#       - name: Set up Docker Buildx
+#         uses: docker/setup-buildx-action@v3
 
-      - name: Resolve Image Tags
-        id: set-image
-        run: |
-          FULL_IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.run_id }}"
-          LATEST="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:latest"
+#       - name: Resolve Image Tags
+#         id: set-image
+#         run: |
+#           FULL_IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.run_id }}"
+#           LATEST="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:latest"
 
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Docker Build & Push"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Image  : $IMAGE"
-          echo "  Latest : $LATEST"
-          echo "  Source : ./dbt/Dockerfile"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  Docker Build & Push"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  Image  : $IMAGE"
+#           echo "  Latest : $LATEST"
+#           echo "  Source : ./dbt/Dockerfile"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-          echo "image=$IMAGE"   >> $GITHUB_OUTPUT
-          echo "latest=$LATEST" >> $GITHUB_OUTPUT
+#           echo "image=$IMAGE"   >> $GITHUB_OUTPUT
+#           echo "latest=$LATEST" >> $GITHUB_OUTPUT
 
-          {
-            echo "TAGS<<EOF"
-            echo "$IMAGE"
-            echo "$LATEST"
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
+#           {
+#             echo "TAGS<<EOF"
+#             echo "$IMAGE"
+#             echo "$LATEST"
+#             echo "EOF"
+#           } >> $GITHUB_OUTPUT
 
-      - name: Build and Push
-        uses: docker/build-push-action@v6
-        with:
-          context:    ./dbt
-          file:       ./dbt/Dockerfile
-          push:       true
-          tags:       ${{ steps.set-image.outputs.TAGS }}
-          cache-from: type=gha
-          cache-to:   type=gha,mode=max
+#       - name: Build and Push
+#         uses: docker/build-push-action@v6
+#         with:
+#           context:    ./dbt
+#           file:       ./dbt/Dockerfile
+#           push:       true
+#           tags:       ${{ steps.set-image.outputs.TAGS }}
+#           cache-from: type=gha
+#           cache-to:   type=gha,mode=max
 
-      # ── Cleanup ─────────────────────────────────────────────────────────────
-      - name: Cleanup
-        if: always()
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Runner Cleanup"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#       # ── Cleanup ─────────────────────────────────────────────────────────────
+#       - name: Cleanup
+#         if: always()
+#         run: |
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  Runner Cleanup"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-          # ── GCP credentials ──────────────────────────────────────────────
-          echo "  Revoking gcloud credentials..."
-          gcloud auth revoke --all --quiet 2>/dev/null || true
+#           # ── GCP credentials ──────────────────────────────────────────────
+#           echo "  Revoking gcloud credentials..."
+#           gcloud auth revoke --all --quiet 2>/dev/null || true
 
-          echo "  Removing GCP credential files..."
-          rm -f  "${GOOGLE_APPLICATION_CREDENTIALS}"  2>/dev/null || true
-          rm -rf "${HOME}/.config/gcloud"             2>/dev/null || true
-          rm -rf "${HOME}/.gsutil"                    2>/dev/null || true
+#           echo "  Removing GCP credential files..."
+#           rm -f  "${GOOGLE_APPLICATION_CREDENTIALS}"  2>/dev/null || true
+#           rm -rf "${HOME}/.config/gcloud"             2>/dev/null || true
+#           rm -rf "${HOME}/.gsutil"                    2>/dev/null || true
 
-          # ── Docker credentials ───────────────────────────────────────────
-          echo "  Removing Docker credential store..."
-          rm -f  "${HOME}/.docker/config.json"        2>/dev/null || true
+#           # ── Docker credentials ───────────────────────────────────────────
+#           echo "  Removing Docker credential store..."
+#           rm -f  "${HOME}/.docker/config.json"        2>/dev/null || true
 
-          # ── Unset env vars ───────────────────────────────────────────────
-          echo "  Unsetting environment variables..."
-          unset PROJECT_ID REGION BQ_LOCATION ENVIRONMENT DBT_TARGET \
-                DATASET_PREFIX JOB_NAME REPOSITORY IMAGE_NAME         \
-                SERVICE_ACCOUNT GOOGLE_APPLICATION_CREDENTIALS         \
-                CLOUDSDK_CORE_PROJECT GCLOUD_PROJECT GOOGLE_CLOUD_PROJECT
+#           # ── Unset env vars ───────────────────────────────────────────────
+#           echo "  Unsetting environment variables..."
+#           unset PROJECT_ID REGION BQ_LOCATION ENVIRONMENT DBT_TARGET \
+#                 DATASET_PREFIX JOB_NAME REPOSITORY IMAGE_NAME         \
+#                 SERVICE_ACCOUNT GOOGLE_APPLICATION_CREDENTIALS         \
+#                 CLOUDSDK_CORE_PROJECT GCLOUD_PROJECT GOOGLE_CLOUD_PROJECT
 
-          {
-            echo "PROJECT_ID="
-            echo "REGION="
-            echo "BQ_LOCATION="
-            echo "ENVIRONMENT="
-            echo "DBT_TARGET="
-            echo "DATASET_PREFIX="
-            echo "JOB_NAME="
-            echo "REPOSITORY="
-            echo "IMAGE_NAME="
-            echo "SERVICE_ACCOUNT="
-            echo "GOOGLE_APPLICATION_CREDENTIALS="
-            echo "CLOUDSDK_CORE_PROJECT="
-            echo "GCLOUD_PROJECT="
-            echo "GOOGLE_CLOUD_PROJECT="
-          } >> $GITHUB_ENV
+#           {
+#             echo "PROJECT_ID="
+#             echo "REGION="
+#             echo "BQ_LOCATION="
+#             echo "ENVIRONMENT="
+#             echo "DBT_TARGET="
+#             echo "DATASET_PREFIX="
+#             echo "JOB_NAME="
+#             echo "REPOSITORY="
+#             echo "IMAGE_NAME="
+#             echo "SERVICE_ACCOUNT="
+#             echo "GOOGLE_APPLICATION_CREDENTIALS="
+#             echo "CLOUDSDK_CORE_PROJECT="
+#             echo "GCLOUD_PROJECT="
+#             echo "GOOGLE_CLOUD_PROJECT="
+#           } >> $GITHUB_ENV
 
-          # ── NOTE: $GITHUB_WORKSPACE is intentionally NOT removed ─────────
-          # GitHub Actions post-job hooks (checkout@v4, auth@v2, etc.) run
-          # Node.js processes after all steps complete and require the working
-          # directory to exist. Deleting it causes:
-          #   "No such file or directory" on node20/bin/node
-          # GitHub-hosted runners are ephemeral — the entire VM is destroyed
-          # at the end of the job, so workspace removal is unnecessary.
+#           # ── NOTE: $GITHUB_WORKSPACE is intentionally NOT removed ─────────
+#           # GitHub Actions post-job hooks (checkout@v4, auth@v2, etc.) run
+#           # Node.js processes after all steps complete and require the working
+#           # directory to exist. Deleting it causes:
+#           #   "No such file or directory" on node20/bin/node
+#           # GitHub-hosted runners are ephemeral — the entire VM is destroyed
+#           # at the end of the job, so workspace removal is unnecessary.
 
-          echo "  ✅ Cleanup complete"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  ✅ Cleanup complete"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Job 4 │ Deploy to Cloud Run Job
-# ══════════════════════════════════════════════════════════════════════════════
-  deploy-cloud-run:
-    name: "Step 4 | Deploy to Cloud Run Job"
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
+# # ══════════════════════════════════════════════════════════════════════════════
+# # Job 4 │ Deploy to Cloud Run Job
+# # ══════════════════════════════════════════════════════════════════════════════
+#   deploy-cloud-run:
+#     name: "Step 4 | Deploy to Cloud Run Job"
+#     needs: build-and-push
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: read
+#       id-token: write
 
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+#     steps:
+#       - name: Checkout Code
+#         uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          project_id:                 ${{ secrets.GCP_PROJECT_ID }}
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+#       - name: Authenticate to Google Cloud
+#         uses: google-github-actions/auth@v2
+#         with:
+#           project_id:                 ${{ secrets.GCP_PROJECT_ID }}
+#           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+#           service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
 
-      - name: Setup GCloud CLI
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          version: 'latest'
+#       - name: Setup GCloud CLI
+#         uses: google-github-actions/setup-gcloud@v2
+#         with:
+#           version: 'latest'
 
-      - name: Install yq
-        run: |
-          sudo wget -qO /usr/local/bin/yq \
-            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-          sudo chmod +x /usr/local/bin/yq
+#       - name: Install yq
+#         run: |
+#           sudo wget -qO /usr/local/bin/yq \
+#             https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+#           sudo chmod +x /usr/local/bin/yq
 
-      - name: Load Config
-        run: |
-          CONFIG=${{ env.CONFIG_FILE }}
-          echo "PROJECT_ID=$(yq e '.project_id'           $CONFIG)" >> $GITHUB_ENV
-          echo "REGION=$(yq e '.region'                   $CONFIG)" >> $GITHUB_ENV
-          echo "BQ_LOCATION=$(yq e '.bq_location'         $CONFIG)" >> $GITHUB_ENV
-          echo "ENVIRONMENT=$(yq e '.environment'         $CONFIG)" >> $GITHUB_ENV
-          echo "DBT_TARGET=$(yq e '.dbt_target'           $CONFIG)" >> $GITHUB_ENV
-          echo "DATASET_PREFIX=$(yq e '.dataset_prefix'   $CONFIG)" >> $GITHUB_ENV
-          echo "JOB_NAME=$(yq e '.job_name'               $CONFIG)" >> $GITHUB_ENV
-          echo "REPOSITORY=$(yq e '.ar_repo'              $CONFIG)" >> $GITHUB_ENV
-          echo "IMAGE_NAME=$(yq e '.image_name'           $CONFIG)" >> $GITHUB_ENV
-          echo "SERVICE_ACCOUNT=$(yq e '.service_account' $CONFIG)" >> $GITHUB_ENV
+#       - name: Load Config
+#         run: |
+#           CONFIG=${{ env.CONFIG_FILE }}
+#           echo "PROJECT_ID=$(yq e '.project_id'           $CONFIG)" >> $GITHUB_ENV
+#           echo "REGION=$(yq e '.region'                   $CONFIG)" >> $GITHUB_ENV
+#           echo "BQ_LOCATION=$(yq e '.bq_location'         $CONFIG)" >> $GITHUB_ENV
+#           echo "ENVIRONMENT=$(yq e '.environment'         $CONFIG)" >> $GITHUB_ENV
+#           echo "DBT_TARGET=$(yq e '.dbt_target'           $CONFIG)" >> $GITHUB_ENV
+#           echo "DATASET_PREFIX=$(yq e '.dataset_prefix'   $CONFIG)" >> $GITHUB_ENV
+#           echo "JOB_NAME=$(yq e '.job_name'               $CONFIG)" >> $GITHUB_ENV
+#           echo "REPOSITORY=$(yq e '.ar_repo'              $CONFIG)" >> $GITHUB_ENV
+#           echo "IMAGE_NAME=$(yq e '.image_name'           $CONFIG)" >> $GITHUB_ENV
+#           echo "SERVICE_ACCOUNT=$(yq e '.service_account' $CONFIG)" >> $GITHUB_ENV
 
-      - name: Create or Update Cloud Run Job
-        run: |
-          FULL_IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:latest"
+#       - name: Create or Update Cloud Run Job
+#         run: |
+#           FULL_IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:latest"
 
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Deploying Cloud Run Job"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Job Name        : ${{ env.JOB_NAME }}"
-          echo "  Image           : $FULL_IMAGE"
-          echo "  Service Account : ${{ env.SERVICE_ACCOUNT }}"
-          echo "  Memory          : 2Gi"
-          echo "  CPU             : 2"
-          echo "  Task Timeout    : 30m"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  Deploying Cloud Run Job"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  Job Name        : ${{ env.JOB_NAME }}"
+#           echo "  Image           : $FULL_IMAGE"
+#           echo "  Service Account : ${{ env.SERVICE_ACCOUNT }}"
+#           echo "  Memory          : 2Gi"
+#           echo "  CPU             : 2"
+#           echo "  Task Timeout    : 30m"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-          # Explicitly check if job exists first — avoids silent failure cascade
-          if gcloud run jobs describe "${{ env.JOB_NAME }}" \
-              --region="${{ env.REGION }}" \
-              --project="${{ env.PROJECT_ID }}" \
-              --quiet 2>/dev/null; then
+#           # Explicitly check if job exists first — avoids silent failure cascade
+#           if gcloud run jobs describe "${{ env.JOB_NAME }}" \
+#               --region="${{ env.REGION }}" \
+#               --project="${{ env.PROJECT_ID }}" \
+#               --quiet 2>/dev/null; then
 
-            echo "🔄 Job exists — updating..."
-            gcloud run jobs update "${{ env.JOB_NAME }}" \
-              --image="${FULL_IMAGE}" \
-              --region="${{ env.REGION }}" \
-              --project="${{ env.PROJECT_ID }}" \
-              --service-account="${{ env.SERVICE_ACCOUNT }}" \
-              --memory="2Gi" \
-              --cpu="2" \
-              --max-retries=0 \
-              --task-timeout="30m" \
-              --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},DBT_DATASET_PREFIX=${{ env.DATASET_PREFIX }},BQ_LOCATION=${{ env.BQ_LOCATION }},DBT_TARGET=${{ env.DBT_TARGET }},ENVIRONMENT=${{ env.ENVIRONMENT }}"
+#             echo "🔄 Job exists — updating..."
+#             gcloud run jobs update "${{ env.JOB_NAME }}" \
+#               --image="${FULL_IMAGE}" \
+#               --region="${{ env.REGION }}" \
+#               --project="${{ env.PROJECT_ID }}" \
+#               --service-account="${{ env.SERVICE_ACCOUNT }}" \
+#               --memory="2Gi" \
+#               --cpu="2" \
+#               --max-retries=0 \
+#               --task-timeout="30m" \
+#               --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},DBT_DATASET_PREFIX=${{ env.DATASET_PREFIX }},BQ_LOCATION=${{ env.BQ_LOCATION }},DBT_TARGET=${{ env.DBT_TARGET }},ENVIRONMENT=${{ env.ENVIRONMENT }}"
 
-          else
+#           else
 
-            echo "🆕 Job not found — creating..."
-            gcloud run jobs create "${{ env.JOB_NAME }}" \
-              --image="${FULL_IMAGE}" \
-              --region="${{ env.REGION }}" \
-              --project="${{ env.PROJECT_ID }}" \
-              --service-account="${{ env.SERVICE_ACCOUNT }}" \
-              --memory="2Gi" \
-              --cpu="2" \
-              --max-retries=0 \
-              --task-timeout="30m" \
-              --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},DBT_DATASET_PREFIX=${{ env.DATASET_PREFIX }},BQ_LOCATION=${{ env.BQ_LOCATION }},DBT_TARGET=${{ env.DBT_TARGET }},ENVIRONMENT=${{ env.ENVIRONMENT }}" \
-              --network="dataflow-network" \
-              --subnet="projects/sw-dev-prj-sandbox/regions/us-east4/subnetworks/dataflow-subnet" \
-              --vpc-egress="all-traffic" \
-              --quiet
+#             echo "🆕 Job not found — creating..."
+#             gcloud run jobs create "${{ env.JOB_NAME }}" \
+#               --image="${FULL_IMAGE}" \
+#               --region="${{ env.REGION }}" \
+#               --project="${{ env.PROJECT_ID }}" \
+#               --service-account="${{ env.SERVICE_ACCOUNT }}" \
+#               --memory="2Gi" \
+#               --cpu="2" \
+#               --max-retries=0 \
+#               --task-timeout="30m" \
+#               --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},DBT_DATASET_PREFIX=${{ env.DATASET_PREFIX }},BQ_LOCATION=${{ env.BQ_LOCATION }},DBT_TARGET=${{ env.DBT_TARGET }},ENVIRONMENT=${{ env.ENVIRONMENT }}" \
+#               --network="dataflow-network" \
+#               --subnet="projects/sw-dev-prj-sandbox/regions/us-east4/subnetworks/dataflow-subnet" \
+#               --vpc-egress="all-traffic" \
+#               --quiet
 
-          fi
+#           fi
 
-          echo "✅ Cloud Run Job deployed: $FULL_IMAGE"
+#           echo "✅ Cloud Run Job deployed: $FULL_IMAGE"
 
-      - name: Confirm Cloud Run Job Deployment
-        run: |
-          gcloud run jobs describe "${{ env.JOB_NAME }}" \
-            --region="${{ env.REGION }}" \
-            --project="${{ env.PROJECT_ID }}" \
-            --format="table(
-                metadata.name,
-                spec.template.spec.template.spec.containers[0].image,
-                spec.template.spec.template.spec.serviceAccountName,
-                spec.template.spec.template.spec.timeoutSeconds,
-                metadata.creationTimestamp
-              )"
+#       - name: Confirm Cloud Run Job Deployment
+#         run: |
+#           gcloud run jobs describe "${{ env.JOB_NAME }}" \
+#             --region="${{ env.REGION }}" \
+#             --project="${{ env.PROJECT_ID }}" \
+#             --format="table(
+#                 metadata.name,
+#                 spec.template.spec.template.spec.containers[0].image,
+#                 spec.template.spec.template.spec.serviceAccountName,
+#                 spec.template.spec.template.spec.timeoutSeconds,
+#                 metadata.creationTimestamp
+#               )"
 
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  ✅ Docker image pushed to Artifact Registry"
-          echo "  ✅ Cloud Run Job deployed successfully"
-          echo "  🔗 GCP Console : https://console.cloud.google.com/run/jobs/details/${{ env.REGION }}/${{ env.JOB_NAME }}/executions?project=${{ env.PROJECT_ID }}"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  ✅ Docker image pushed to Artifact Registry"
+#           echo "  ✅ Cloud Run Job deployed successfully"
+#           echo "  🔗 GCP Console : https://console.cloud.google.com/run/jobs/details/${{ env.REGION }}/${{ env.JOB_NAME }}/executions?project=${{ env.PROJECT_ID }}"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-      # ── Cleanup ─────────────────────────────────────────────────────────────
-      - name: Cleanup
-        if: always()
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Runner Cleanup"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#       # ── Cleanup ─────────────────────────────────────────────────────────────
+#       - name: Cleanup
+#         if: always()
+#         run: |
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  Runner Cleanup"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-          # ── GCP credentials ──────────────────────────────────────────────
-          echo "  Revoking gcloud credentials..."
-          gcloud auth revoke --all --quiet 2>/dev/null || true
+#           # ── GCP credentials ──────────────────────────────────────────────
+#           echo "  Revoking gcloud credentials..."
+#           gcloud auth revoke --all --quiet 2>/dev/null || true
 
-          echo "  Removing GCP credential files..."
-          rm -f  "${GOOGLE_APPLICATION_CREDENTIALS}"  2>/dev/null || true
-          rm -rf "${HOME}/.config/gcloud"             2>/dev/null || true
-          rm -rf "${HOME}/.gsutil"                    2>/dev/null || true
+#           echo "  Removing GCP credential files..."
+#           rm -f  "${GOOGLE_APPLICATION_CREDENTIALS}"  2>/dev/null || true
+#           rm -rf "${HOME}/.config/gcloud"             2>/dev/null || true
+#           rm -rf "${HOME}/.gsutil"                    2>/dev/null || true
 
-          # ── Docker credentials ───────────────────────────────────────────
-          echo "  Removing Docker credential store..."
-          rm -f  "${HOME}/.docker/config.json"        2>/dev/null || true
+#           # ── Docker credentials ───────────────────────────────────────────
+#           echo "  Removing Docker credential store..."
+#           rm -f  "${HOME}/.docker/config.json"        2>/dev/null || true
 
-          # ── Unset env vars ───────────────────────────────────────────────
-          echo "  Unsetting environment variables..."
-          unset PROJECT_ID REGION BQ_LOCATION ENVIRONMENT DBT_TARGET \
-                DATASET_PREFIX JOB_NAME REPOSITORY IMAGE_NAME         \
-                SERVICE_ACCOUNT GOOGLE_APPLICATION_CREDENTIALS         \
-                CLOUDSDK_CORE_PROJECT GCLOUD_PROJECT GOOGLE_CLOUD_PROJECT
+#           # ── Unset env vars ───────────────────────────────────────────────
+#           echo "  Unsetting environment variables..."
+#           unset PROJECT_ID REGION BQ_LOCATION ENVIRONMENT DBT_TARGET \
+#                 DATASET_PREFIX JOB_NAME REPOSITORY IMAGE_NAME         \
+#                 SERVICE_ACCOUNT GOOGLE_APPLICATION_CREDENTIALS         \
+#                 CLOUDSDK_CORE_PROJECT GCLOUD_PROJECT GOOGLE_CLOUD_PROJECT
 
-          {
-            echo "PROJECT_ID="
-            echo "REGION="
-            echo "BQ_LOCATION="
-            echo "ENVIRONMENT="
-            echo "DBT_TARGET="
-            echo "DATASET_PREFIX="
-            echo "JOB_NAME="
-            echo "REPOSITORY="
-            echo "IMAGE_NAME="
-            echo "SERVICE_ACCOUNT="
-            echo "GOOGLE_APPLICATION_CREDENTIALS="
-            echo "CLOUDSDK_CORE_PROJECT="
-            echo "GCLOUD_PROJECT="
-            echo "GOOGLE_CLOUD_PROJECT="
-          } >> $GITHUB_ENV
+#           {
+#             echo "PROJECT_ID="
+#             echo "REGION="
+#             echo "BQ_LOCATION="
+#             echo "ENVIRONMENT="
+#             echo "DBT_TARGET="
+#             echo "DATASET_PREFIX="
+#             echo "JOB_NAME="
+#             echo "REPOSITORY="
+#             echo "IMAGE_NAME="
+#             echo "SERVICE_ACCOUNT="
+#             echo "GOOGLE_APPLICATION_CREDENTIALS="
+#             echo "CLOUDSDK_CORE_PROJECT="
+#             echo "GCLOUD_PROJECT="
+#             echo "GOOGLE_CLOUD_PROJECT="
+#           } >> $GITHUB_ENV
 
-          # ── NOTE: $GITHUB_WORKSPACE is intentionally NOT removed ─────────
-          # GitHub Actions post-job hooks (checkout@v4, auth@v2, etc.) run
-          # Node.js processes after all steps complete and require the working
-          # directory to exist. Deleting it causes:
-          #   "No such file or directory" on node20/bin/node
-          # GitHub-hosted runners are ephemeral — the entire VM is destroyed
-          # at the end of the job, so workspace removal is unnecessary.
+#           # ── NOTE: $GITHUB_WORKSPACE is intentionally NOT removed ─────────
+#           # GitHub Actions post-job hooks (checkout@v4, auth@v2, etc.) run
+#           # Node.js processes after all steps complete and require the working
+#           # directory to exist. Deleting it causes:
+#           #   "No such file or directory" on node20/bin/node
+#           # GitHub-hosted runners are ephemeral — the entire VM is destroyed
+#           # at the end of the job, so workspace removal is unnecessary.
 
-          echo "  ✅ Cleanup complete"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  ✅ Cleanup complete"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
