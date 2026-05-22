@@ -1,5 +1,5 @@
 # ── Stage 1: Dataflow launcher binary ─────────────────────────────────
-FROM gcr.io/dataflow-templates-base/python311-template-launcher-base:latest AS launcher
+FROM gcr.io/dataflow-templates-base/python311-template-launcher-base:20260413-rc01 AS launcher
 
 # ── Stage 2: build Python dependencies (throwaway) ───────────────────
 FROM python:3.11.15-slim AS builder
