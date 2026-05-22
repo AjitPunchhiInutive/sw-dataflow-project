@@ -10,7 +10,7 @@ on:
 
 env:
   TF_DIR:      ./dataflowscript
-  CONFIG_FILE: ./dataflowscript/config.json   # ← single source of truth
+  CONFIG_FILE: ./dataflowscript/dev-config.json
 
 jobs:
  
