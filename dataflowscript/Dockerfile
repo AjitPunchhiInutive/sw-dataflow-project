@@ -17,10 +17,22 @@ RUN apt-get update && \
 
 COPY requirements.txt /tmp/requirements.txt
 
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+# ── CVE fixes ──────────────────────────────────────────────────────────
+# CVE-2026-3219  : pip ≤ 26.0.x  — concatenated tar+ZIP treated as ZIP
+#                  → upgrade to pip 26.1.1
+# CVE-2026-24049 : wheel ≤ 0.46.1 — path traversal in wheel unpack
+#                  → upgrade to wheel 0.46.3
+# CVE-2026-23949 : jaraco.context ≥ 5.2.0,< 6.1.0 (vendored in setuptools)
+#                  — Zip Slip in tarball() function
+#                  → upgrade to setuptools 82.0.1 (vendors jaraco.context 6.1.0+)
+# ───────────────────────────────────────────────────────────────────────
+RUN pip install --no-cache-dir \
+        "pip==26.1.1" \
+        "setuptools==82.0.1" \
+        "wheel==0.46.3" && \
     pip install --no-cache-dir -r /tmp/requirements.txt
 
-# ── Stage 3: clean runtime (no build tools, no libmbedtls) ──────────
+# ── Stage 3: clean runtime (no build tools, no libmbedtls) ───────────
 FROM python:3.11.15-slim
 
 RUN apt-get update && \
@@ -29,6 +41,15 @@ RUN apt-get update && \
         default-jre-headless && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+# ── Upgrade pip/setuptools/wheel in the runtime layer too ─────────────
+# The base python:3.11.15-slim ships its own bundled pip.
+# Overwrite it with the same patched versions used in the builder stage
+# so scanners don't flag the base-image pip binary.
+RUN pip install --no-cache-dir \
+        "pip==26.1.1" \
+        "setuptools==82.0.1" \
+        "wheel==0.46.3"
 
 # Create non-root user and group
 RUN groupadd --gid 1001 appgroup && \
