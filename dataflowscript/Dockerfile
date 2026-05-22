@@ -90,4 +90,7 @@ HEALTHCHECK --interval=30s \
 
 WORKDIR /template
 
+# ── Run as the non-root user ──────────────────────────────────────────
+USER 1001
+
 ENTRYPOINT ["/opt/google/dataflow/python_template_launcher"]
