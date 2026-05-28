@@ -1,0 +1,50 @@
+name: manufacturing
+prefix: dev
+project_id: sw-dev-prj-sandbox
+region: us-east4
+
+zones:
+  # ── RDS Zone — RAW ──────────────────────────────────────────────────
+  rds:
+    type: RAW
+    discovery: true
+    assets:
+      OT-Telemetry:
+        resource_name: snoflake_iceberg
+        cron_schedule: "0 0 * * *"
+        discovery_spec_enabled: true
+        resource_spec_type: BIGQUERY_DATASET
+  
+      plant-reference:
+        resource_name: dataflow
+        cron_schedule:  null                  # NEED FROM DATA TEAM
+        discovery_spec_enabled: true
+        resource_spec_type: BIGQUERY_DATASET
+
+      plant-operations:
+        resource_name:  pubsub_gcs_dataflow
+        cron_schedule:  null                  # NEED FROM DATA TEAM
+        discovery_spec_enabled: true
+        resource_spec_type:  BIGQUERY_DATASET
+
+  # ── EDS Zone — CURATED ──────────────────────────────────────────────
+  eds:
+    type: CURATED
+    discovery: true
+    assets:
+      bq-eds:
+        resource_name: pubsub_gcs_dataflow
+        cron_schedule: null
+        discovery_spec_enabled: false
+        resource_spec_type: BIGQUERY_DATASET
+
+  # ── ODS Zone — CURATED ──────────────────────────────────────────────
+  ods:
+    type: CURATED
+    discovery: true
+    assets:
+      bq-ods:
+        resource_name: pubsub_gcs_dataflow
+        cron_schedule: null
+        discovery_spec_enabled: false
+        resource_spec_type: BIGQUERY_DATASET

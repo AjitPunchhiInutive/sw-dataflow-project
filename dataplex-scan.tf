@@ -1,22 +1,18 @@
+locals {
+  datascan_configs = {
+    for b in flatten([
+      for f in fileset("${path.module}/config/dataplex-datascan", "*.yaml") :
+      yamldecode(file("${path.module}/config/dataplex-datascan/${f}"))
+    ]) : b.name => b
+  }
+}
+
 module "data_profile_scan" {
-  source     = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//dataplex-datascan?ref=main"
-  project_id = "sw-dev-prj-sandbox"
-  name       = "customer-orders-profile"
-  region     = "us-east4"
-  data = {
-    resource = "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/pubsub_gcs_dataflow/tables/historian_stream"
-  }
-  # execution_schedule = "TZ=UTC 0 2 * * *"
-  data_profile_spec = {
-    sampling_percent = 20
-    row_filter       = null   # null = scan all rows
-    include_fields   = null   # null = all columns
-    exclude_fields   = null   # null = no exclusions
-    post_scan_actions = {
-      publish_to_bigquery = true
-      bigquery_export = {
-        results_table = "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/dataplex_profile_results/tables/customer_orders_profile"
-      }
-    }
-  }
+  for_each          = local.datascan_configs
+  source            = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//dataplex-datascan?ref=main"
+  project_id        = each.value.project_id
+  name              = each.key
+  region            = each.value.region
+  data              = each.value.data
+  data_profile_spec = each.value.data_profile_spec
 }
