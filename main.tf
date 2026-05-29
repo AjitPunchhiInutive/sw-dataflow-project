@@ -13,7 +13,9 @@ locals {
   # Use filename (minus .yaml) as the map key — no .name lookup needed
   dataplex_configs = {
     for f in fileset("${path.module}/config/dataplex", "*.yaml") :
-    trimsuffix(f, ".yaml") => yamldecode(file("${path.module}/config/dataplex/${f}"))
+    trimsuffix(f, ".yaml") => yamldecode(
+      file("${path.module}/config/dataplex/${f}")
+    )
   }
 
   # ── Dataplex Data Profile Scans ────────────────────────────────────

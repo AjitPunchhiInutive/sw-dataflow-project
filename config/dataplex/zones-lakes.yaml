@@ -1,50 +1,47 @@
+# config/dataplex/manufacturing.yaml
 name: manufacturing
 prefix: dev
 project_id: sw-dev-prj-sandbox
 region: us-east4
 
 zones:
-  # ── RDS Zone — RAW ──────────────────────────────────────────────────
+
   rds:
     type: RAW
     discovery: true
     assets:
-      OT-Telemetry:
-        resource_name: snoflake_iceberg
-        cron_schedule: "0 0 * * *"
+      ot-telemetry:
+        resource_name:          ot-telemetry
+        cron_schedule:          null
         discovery_spec_enabled: true
-        resource_spec_type: BIGQUERY_DATASET
-  
+        resource_spec_type:     BIGQUERY_DATASET
       plant-reference:
-        resource_name: dataflow
-        cron_schedule:  null                  # NEED FROM DATA TEAM
+        resource_name:          plant-reference
+        cron_schedule:          null
         discovery_spec_enabled: true
-        resource_spec_type: BIGQUERY_DATASET
-
+        resource_spec_type:     BIGQUERY_DATASET
       plant-operations:
-        resource_name:  pubsub_gcs_dataflow
-        cron_schedule:  null                  # NEED FROM DATA TEAM
+        resource_name:          plant-operations
+        cron_schedule:          null
         discovery_spec_enabled: true
-        resource_spec_type:  BIGQUERY_DATASET
+        resource_spec_type:     BIGQUERY_DATASET
 
-  # ── EDS Zone — CURATED ──────────────────────────────────────────────
   eds:
     type: CURATED
     discovery: true
     assets:
-      bq-eds:
-        resource_name: pubsub_gcs_dataflow
-        cron_schedule: null
+      eds1:
+        resource_name:          eds1
+        cron_schedule:          null
         discovery_spec_enabled: false
-        resource_spec_type: BIGQUERY_DATASET
+        resource_spec_type:     BIGQUERY_DATASET
 
-  # ── ODS Zone — CURATED ──────────────────────────────────────────────
   ods:
     type: CURATED
     discovery: true
     assets:
-      bq-ods:
-        resource_name: pubsub_gcs_dataflow
-        cron_schedule: null
+      ods1:
+        resource_name:          ods1
+        cron_schedule:          null
         discovery_spec_enabled: false
-        resource_spec_type: BIGQUERY_DATASET
+        resource_spec_type:     BIGQUERY_DATASET
