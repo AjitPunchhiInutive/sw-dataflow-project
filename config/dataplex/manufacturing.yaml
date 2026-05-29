@@ -26,22 +26,22 @@ zones:
         discovery_spec_enabled: true
         resource_spec_type:     BIGQUERY_DATASET
 
-  eds:
-    type: CURATED
-    discovery: true
-    assets:
-      eds1:
-        resource_name:          eds
-        cron_schedule:          null
-        discovery_spec_enabled: false
-        resource_spec_type:     BIGQUERY_DATASET
+  # eds:
+  #   type: CURATED
+  #   discovery: true
+  #   assets:
+  #     eds1:
+  #       resource_name:          eds
+  #       cron_schedule:          null
+  #       discovery_spec_enabled: false
+  #       resource_spec_type:     BIGQUERY_DATASET
 
-  ods:
-    type: CURATED
-    discovery: true
-    assets:
-      ods1:
-        resource_name:          ods
-        cron_schedule:          null
-        discovery_spec_enabled: false
-        resource_spec_type:     BIGQUERY_DATASET
+  # ods:
+  #   type: CURATED
+  #   discovery: true
+  #   assets:
+  #     ods1:
+  #       resource_name:          ods
+  #       cron_schedule:          null
+  #       discovery_spec_enabled: false
+  #       resource_spec_type:     BIGQUERY_DATASET
