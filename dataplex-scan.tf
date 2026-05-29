@@ -8,12 +8,24 @@ locals {
     )
   }
 
-  # ── Step 2: flatten scans map from every file ────────────────────────────
-  # Merges all `scans:` blocks across all YAML files into one flat map.
-  # Each scan inherits project_id and region from its parent file.
-  # Result: { "ot-telemetry-profile" => { project_id, region, data, data_profile_spec } }
+  # ── Step 2: flatten — handle both old (single-scan) and new (multi-scan) ─
+  #
+  # OLD format (no `scans:` key) — customer-orders-profile.yaml:
+  #   project_id: ...
+  #   data: { resource: ... }
+  #   data_profile_spec: { ... }
+  #
+  # NEW format (has `scans:` key) — manufacturing-scans.yaml:
+  #   project_id: ...
+  #   scans:
+  #     scan-name-1: { data: ..., data_profile_spec: ... }
+  #     scan-name-2: { data: ..., data_profile_spec: ... }
+  # ─────────────────────────────────────────────────────────────────────────
   datascan_configs = merge([
-    for file_key, file_val in local._datascan_files : {
+    for file_key, file_val in local._datascan_files :
+
+    # NEW multi-scan format — file has a `scans:` block
+    can(file_val.scans) ? {
       for scan_key, scan_val in file_val.scans :
       scan_key => {
         project_id        = file_val.project_id
@@ -21,7 +33,21 @@ locals {
         data              = scan_val.data
         data_profile_spec = scan_val.data_profile_spec
       }
-    }
+    } :
+
+    # OLD single-scan format — file has `data:` and `data_profile_spec:` directly
+    can(file_val.data) ? {
+      file_key => {
+        project_id        = file_val.project_id
+        region            = file_val.region
+        data              = file_val.data
+        data_profile_spec = file_val.data_profile_spec
+      }
+    } :
+
+    # Skip any file that matches neither format
+    {}
+
   ]...)
 
 }
@@ -39,7 +65,6 @@ output "datascan_configs_debug" {
 }
 
 # ── Data Profile Scans ────────────────────────────────────────────────────────
-
 module "data_profile_scan" {
   for_each          = local.datascan_configs
   source            = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//dataplex-datascan?ref=main"
