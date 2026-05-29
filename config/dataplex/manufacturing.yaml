@@ -10,17 +10,17 @@ zones:
     type: RAW
     discovery: true
     assets:
-      ot_telemetry:
+      ot-telemetry:
         resource_name:          snoflake_iceberg
         cron_schedule:          null
         discovery_spec_enabled: true
         resource_spec_type:     BIGQUERY_DATASET
-      plant_reference:
+      plant-reference:
         resource_name:          raw_dev_eds
         cron_schedule:          null
         discovery_spec_enabled: true
         resource_spec_type:     BIGQUERY_DATASET
-      plant_operations:
+      plant-operations:
         resource_name:          pubsub_gcs_dataflow
         cron_schedule:          null
         discovery_spec_enabled: true
