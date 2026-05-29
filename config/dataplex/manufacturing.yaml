@@ -11,17 +11,17 @@ zones:
     discovery: true
     assets:
       ot-telemetry:
-        resource_name:          ot-telemetry
+        resource_name:          snoflake_iceberg
         cron_schedule:          null
         discovery_spec_enabled: true
         resource_spec_type:     BIGQUERY_DATASET
       plant-reference:
-        resource_name:          plant-reference
+        resource_name:          dataflow
         cron_schedule:          null
         discovery_spec_enabled: true
         resource_spec_type:     BIGQUERY_DATASET
       plant-operations:
-        resource_name:          plant-operations
+        resource_name:          pubsub_gcs_dataflow
         cron_schedule:          null
         discovery_spec_enabled: true
         resource_spec_type:     BIGQUERY_DATASET
@@ -31,7 +31,7 @@ zones:
     discovery: true
     assets:
       eds1:
-        resource_name:          eds1
+        resource_name:          pubsub_gcs_dataflow
         cron_schedule:          null
         discovery_spec_enabled: false
         resource_spec_type:     BIGQUERY_DATASET
@@ -41,7 +41,7 @@ zones:
     discovery: true
     assets:
       ods1:
-        resource_name:          ods1
+        resource_name:          pubsub_gcs_dataflow
         cron_schedule:          null
         discovery_spec_enabled: false
         resource_spec_type:     BIGQUERY_DATASET

@@ -1,3 +1,11 @@
+locals{
+  # ── Dataplex Data Profile Scans ────────────────────────────────────
+  datascan_configs = {
+    for f in fileset("${path.module}/config/dataplex-datascan", "*.yaml") :
+    trimsuffix(f, ".yaml") => yamldecode(file("${path.module}/config/dataplex-datascan/${f}"))
+  }
+
+}
 
 module "data_profile_scan" {
   for_each          = local.datascan_configs
