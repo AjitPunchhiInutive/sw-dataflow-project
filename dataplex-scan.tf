@@ -1,11 +1,3 @@
-locals {
-  datascan_configs = {
-    for b in flatten([
-      for f in fileset("${path.module}/config/dataplex-datascan", "*.yaml") :
-      yamldecode(file("${path.module}/config/dataplex-datascan/${f}"))
-    ]) : b.name => b
-  }
-}
 
 module "data_profile_scan" {
   for_each          = local.datascan_configs

@@ -1,8 +1,4 @@
-locals {
-  dataplex_configs = {
-    for b in flatten([for f in fileset("${path.module}/config/dataplex", "*.yaml") : yamldecode(file("${path.module}/config/dataplex/${f}"))]) : b.name => b
-  }
-}
+
 module "dataplex" {
   for_each   = local.dataplex_configs
   source     = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//dataplex?ref=main"
