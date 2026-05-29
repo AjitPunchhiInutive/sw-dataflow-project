@@ -1,16 +1,48 @@
-name: customer-orders-profile
+# ── Manufacturing Data Profile Scans ────────────────────────────────────────
+# One file, multiple table scans.
+# Each key under `scans:` becomes the scan ID.
+# ─────────────────────────────────────────────────────────────────────────────
+
 project_id: sw-dev-prj-sandbox
-region: us-east4
+region:     us-east4
 
-data:
-  resource: "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/pubsub_gcs_dataflow/tables/historian_stream"
+scans:
 
-data_profile_spec:
-  sampling_percent: 20
-  row_filter: null          # null = scan all rows
-  include_fields: null      # null = all columns
-  exclude_fields: null      # null = no exclusions
-  post_scan_actions:
-    publish_to_bigquery: true
-    bigquery_export:
-      results_table: "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/dataplex_profile_results/tables/customer_orders_profile"
+  ot-telemetry-profile:
+    data:
+      resource: "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/pubsub_gcs_dataflow/tables/historian_stream"
+    data_profile_spec:
+      sampling_percent: 20
+      row_filter:       null
+      include_fields:   null
+      exclude_fields:   null
+      post_scan_actions:
+        publish_to_bigquery: true
+        bigquery_export:
+          results_table: "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/dataplex_profile_results/tables/historian_stream_profile"
+
+  plant-reference-profile:
+    data:
+      resource: "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/pubsub_gcs_dataflow/tables/historian_stream_demo"
+    data_profile_spec:
+      sampling_percent: 20
+      row_filter:       null
+      include_fields:   null
+      exclude_fields:   null
+      post_scan_actions:
+        publish_to_bigquery: true
+        bigquery_export:
+          results_table: "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/dataplex_profile_results/tables/historian_stream_demo_profile"
+
+  plant-operations-profile:
+    data:
+      resource: "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/pubsub_gcs_dataflow/tables/historian_stream_error"
+    data_profile_spec:
+      sampling_percent: 20
+      row_filter:       null
+      include_fields:   null
+      exclude_fields:   null
+      post_scan_actions:
+        publish_to_bigquery: true
+        bigquery_export:
+          results_table: "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/dataplex_profile_results/tables/historian_stream_error_profile"
