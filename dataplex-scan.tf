@@ -2,9 +2,9 @@ locals {
 
   # ── Step 1: load every YAML file ────────────────────────────────────────
   _datascan_files = {
-    for f in fileset("${path.module}/config/dataplex-datascan", "*.yaml") :
+    for f in fileset("${path.module}/config/dataplex", "*.yaml") :
     trimsuffix(f, ".yaml") => yamldecode(
-      file("${path.module}/config/dataplex-datascan/${f}")
+      file("${path.module}/config/dataplex/${f}")
     )
   }
 
