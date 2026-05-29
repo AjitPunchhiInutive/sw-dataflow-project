@@ -2,9 +2,9 @@ locals {
 
   # ── Dataplex Aspect Types ─────────────────────────────────────────────────
   _aspect_types_raw = {
-    for f in fileset("${path.module}/config/dataplex-aspect-types", "*.yaml") :
+    for f in fileset("${path.module}/config/dataplex", "*.yaml") :
     trimsuffix(f, ".yaml") => yamldecode(
-      file("${path.module}/config/dataplex-aspect-types/${f}")
+      file("${path.module}/config/dataplex/${f}")
     )
   }
 
