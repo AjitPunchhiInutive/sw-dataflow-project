@@ -1,0 +1,19 @@
+project_id: "my-gcp-project-id"
+location: "us-east4"           # Must match the BigQuery dataset region
+
+name: "data-classification-taxonomy"
+
+# ── Tag hierarchy ────────────────────────────────────────────────────────────
+tags:
+  public:
+    description: "Non-sensitive data, freely accessible"
+
+  internal:
+    description: "Internal use only — not for external sharing"
+
+  confidential:
+    description: "Sensitive data — limited to authorised teams"
+    
+  restricted:
+    description: "Highly sensitive / PII — restricted access"
+

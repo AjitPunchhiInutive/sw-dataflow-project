@@ -141,7 +141,9 @@
 #     permissions:
 #       contents: read
 #       id-token: write
- 
+#     env:
+#       IMAGE_NAME: ''
+
 #     steps:
 #       - name: Checkout Code
 #         uses: actions/checkout@v4
@@ -191,23 +193,37 @@
 #           docker --version
 #           docker buildx version
  
-#       - name: Build and Push Docker Image
+#       - name: Build Docker Image
 #         run: |
 #           IMAGE="${{ env.AR_REGISTRY }}/${{ env.AR_REPOSITORY }}/${{ env.AR_IMAGE_NAME }}:${{ github.run_number }}"
- 
+#           echo "IMAGE_NAME=$IMAGE" >> $GITHUB_ENV
+
 #           echo "Configuring Docker for Artifact Registry..."
 #           gcloud auth configure-docker ${{ env.AR_REGISTRY }} --quiet
- 
+
 #           echo "Building Docker image: $IMAGE"
 #           docker build \
 #             --no-cache \
+#             --push=false
 #             --tag "$IMAGE" \
 #             --file "${{ env.DOCKERFILE_PATH }}" \
 #             ${{ env.DOCKERFILE_CONTEXT }}
- 
+#           echo "✅ Image built: $IMAGE"
+
+#       - name: Prisma Cloud image scan
+#         id: scan
+#         uses: PaloAltoNetworks/prisma-cloud-scan@v1.6.7
+#         with:
+#           pcc_console_url: ${{ secrets.PCC_CONSOLE_URL }}
+#           pcc_user: ${{ secrets.PCC_USER }}
+#           pcc_pass: ${{ secrets.PCC_PASS }}
+#           image_name: ${{ env.IMAGE_NAME }}
+
+#       - name: Push Docker Image
+#         run: |
 #           echo "Pushing image..."
-#           docker push "$IMAGE"
-#           echo "✅ Image pushed: $IMAGE"
+#           docker push "${{ env.IMAGE_NAME }}"
+#           echo "✅ Image pushed: ${{ env.IMAGE_NAME }}"
    
 #       - name: Override Active GCloud Project
 #         run: |

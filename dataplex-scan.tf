@@ -44,18 +44,6 @@ locals {
 
 }
 
-# ── Debug output — remove after validating ────────────────────────────────
-output "datascan_configs_debug" {
-  value = {
-    for k, v in local.datascan_configs :
-    k => {
-      project_id = v.project_id
-      region     = v.region
-      resource   = v.data.resource
-    }
-  }
-}
-
 # ── Data Profile Scans ─────────────────────────────────────────────────────
 module "data_profile_scan" {
   for_each          = local.datascan_configs

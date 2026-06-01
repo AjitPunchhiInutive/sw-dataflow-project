@@ -47,6 +47,42 @@ metadata_template: |
           { "name": "TBD_2", "index": 2 },
           { "name": "TBD_3", "index": 3 }
         ]
+      },
+      {
+        "name": "sensitivity-level",
+        "type": "enum",
+        "index": 3,
+        "annotations": {
+          "displayName": "Sensitivity Level",
+          "description": "The Data Sensitivity aspect classifies data sensitivity to inform column protection and sharing"
+        },
+        "constraints": {
+          "required": true
+        },
+        "enumValues": [
+          { "name": "Personal_Identifiable_Information_PII", "index": 1 },
+          { "name": "Operational_and_Production_Data", "index": 2 },
+          { "name": "Quality_and_Inspection_Data", "index": 3 },
+          { "name": "Safety_and_Inspection_Data", "index": 4 },
+          { "name": "General_and_Internal_Use", "index": 5 }
+        ]
+      },
+      {
+        "name": "data-category",
+        "type": "enum",
+        "index": 4,
+        "annotations": {
+          "displayName": "Data Category",
+          "description": "The Data Category aspect identifies the type of data within the data sensitivity framework to help organize, understand, and manage it consistently across the organization."
+        },
+        "constraints": {
+          "required": true
+        },
+        "enumValues": [
+          { "name": "TBD_1", "index": 1 },
+          { "name": "TBD_2", "index": 2 },
+          { "name": "TBD_3", "index": 3 }
+        ]
       }
     ]
   }
