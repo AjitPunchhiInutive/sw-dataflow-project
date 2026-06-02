@@ -7,31 +7,34 @@ locals {
     )
   }
 
-  # Group tags by file so each module instance = one file (one project/location)
-  catalog_tag_configs = {
+  catalog_tag_configs = merge([
     for file_key, file_val in local._catalog_tag_files :
-    file_key => {
-      project_id = file_val.project_id
-      location   = file_val.location
-      tags = {
-        for tag_key, tag_val in file_val.tags :
-        tag_key => {
-          parent   = tag_val.parent
-          column   = lookup(tag_val, "column", null)
-          template = tag_val.template
-          fields   = tag_val.fields
-        }
+    can(file_val.tags) ? {
+      for tag_key, tag_val in file_val.tags :
+      "${file_key}/${tag_key}" => {
+        project_id = file_val.project_id
+        location   = file_val.location
+        parent     = tag_val.parent
+        column     = lookup(tag_val, "column", null)
+        template   = tag_val.template
+        fields     = tag_val.fields
       }
-    }
-    if can(file_val.tags)
-  }
+    } : {}
+  ]...)
 }
 
 module "data_catalog_tag" {
-  for_each   = local.catalog_tag_configs
-  source     = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//data-catalog-tag?ref=main"
+  source = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//data-catalog-tag?ref=main"
 
-  project_id = each.value.project_id
-  location   = each.value.location
-  tags       = each.value.tags
+  tags = {
+    for k, v in local.catalog_tag_configs :
+    k => {
+      project_id = v.project_id
+      location   = v.location
+      parent     = v.parent
+      column     = v.column
+      template   = v.template
+      fields     = v.fields
+    }
+  }
 }

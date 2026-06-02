@@ -1,7 +1,7 @@
 # config/data-catalog-tags/pubsub-gcs-dataflow.yaml
 
-project_id: "sw-dev-prj-sandbox"
-location:   "us-east4"
+project_id: "sw-dev-prj-sandbox"   # file-level default
+location:   "us-east4"             # file-level default
 
 tags:
 
