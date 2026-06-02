@@ -1,50 +1,33 @@
 locals {
-
-  # ── Step 1: load every YAML file ──────────────────────────────────────
-  _datascan_files = {
+  _yaml_files = {
     for f in fileset("${path.module}/config/dataplex", "*.yaml") :
-    trimsuffix(f, ".yaml") => yamldecode(
-      file("${path.module}/config/dataplex/${f}")
-    )
+    trimsuffix(f, ".yaml") => yamldecode(file("${path.module}/config/dataplex/${f}"))
   }
 
-  # ── Step 2: flatten multi-scan files (new format) ─────────────────────
-  # NEW format — file has a `scans:` block
-  _multi_scan_configs = merge([
-    for file_key, file_val in local._datascan_files :
-    can(file_val.scans) ? {
-      for scan_key, scan_val in file_val.scans :
-      scan_key => {
-        project_id        = file_val.project_id
-        region            = file_val.region
-        data              = scan_val.data
-        data_profile_spec = scan_val.data_profile_spec
-      }
-    } : {}
-  ]...)
-
-  # ── Step 3: wrap single-scan files (old format) ────────────────────────
-  # OLD format — file has `data:` and `data_profile_spec:` directly
-  _single_scan_configs = {
-    for file_key, file_val in local._datascan_files :
-    file_key => {                          # ← plain object, no ternary needed
-      project_id        = file_val.project_id
-      region            = file_val.region
-      data              = file_val.data
-      data_profile_spec = file_val.data_profile_spec
-    }
-    if !can(file_val.scans) && can(file_val.data)  # only old-format files
-  }
-
-  # ── Step 4: merge both into one final map ─────────────────────────────
   datascan_configs = merge(
-    local._single_scan_configs,
-    local._multi_scan_configs
+    # Old format — data: and data_profile_spec: at root level
+    {
+      for k, v in local._yaml_files : k => {
+        project_id        = v.project_id
+        region            = v.region
+        data              = v.data
+        data_profile_spec = v.data_profile_spec
+      } if !can(v.scans) && can(v.data)
+    },
+    # New format — scans: block with multiple scans
+    merge([
+      for k, v in local._yaml_files : can(v.scans) ? {
+        for scan_key, scan_val in v.scans : scan_key => {
+          project_id        = v.project_id
+          region            = v.region
+          data              = scan_val.data
+          data_profile_spec = scan_val.data_profile_spec
+        }
+      } : {}
+    ]...)
   )
-
 }
 
-# ── Data Profile Scans ─────────────────────────────────────────────────────
 module "data_profile_scan" {
   for_each          = local.datascan_configs
   source            = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//dataplex-datascan?ref=main"
