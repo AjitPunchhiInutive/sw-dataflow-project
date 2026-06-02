@@ -1,4 +1,4 @@
-project_id: "my-gcp-project-id"
+project_id: "sw-dev-prj-sandbox"
 location: "us-east4"           # Must match the BigQuery dataset region
 
 name: "data-classification-taxonomy"
