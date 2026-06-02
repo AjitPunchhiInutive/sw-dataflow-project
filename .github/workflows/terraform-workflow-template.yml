@@ -73,7 +73,7 @@ jobs:
     permissions:
       contents: read
     environment: 
-      name: terraform
+      name: test
       url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - name: Approval Required
