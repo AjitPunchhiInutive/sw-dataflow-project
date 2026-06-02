@@ -3,9 +3,7 @@ name: manufacturing
 prefix: dev
 project_id: sw-dev-prj-sandbox
 region: us-east4
-
 zones:
-
   rds:
     type: RAW
     discovery: true

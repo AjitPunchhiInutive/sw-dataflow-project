@@ -13,4 +13,5 @@ module "dataplex" {
   prefix     = try(each.value.prefix, "dev")
   project_id = each.value.project_id
   region     = each.value.region
+  zones      = each.value.zones
 }
