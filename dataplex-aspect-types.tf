@@ -1,7 +1,7 @@
 locals {
   aspect_types_configs = {
-    for f in fileset("${path.module}/config/dataplex", "*.yaml") :
-    trimsuffix(f, ".yaml") => yamldecode(file("${path.module}/config/dataplex/${f}"))
+    for f in fileset("${path.module}/config/dataplex/aspect-types", "*.yaml") :
+    trimsuffix(f, ".yaml") => yamldecode(file("${path.module}/config/dataplex/aspect-types/${f}"))
   }
 }
 
