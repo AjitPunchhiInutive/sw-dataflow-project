@@ -23,9 +23,7 @@ metadata_template: |
         },
         "constraints": { "required": false },
         "enumValues": [
-          { "name": "TBD_1", "index": 1 },
-          { "name": "TBD_2", "index": 2 },
-          { "name": "TBD_3", "index": 3 }
+          { "name": "Plant_1", "index": 1 }
         ]
       },
       {
@@ -38,9 +36,7 @@ metadata_template: |
         },
         "constraints": { "required": false },
         "enumValues": [
-          { "name": "TBD_1", "index": 1 },
-          { "name": "TBD_2", "index": 2 },
-          { "name": "TBD_3", "index": 3 }
+          { "name": "Wire", "index": 1 }
         ]
       }
     ]

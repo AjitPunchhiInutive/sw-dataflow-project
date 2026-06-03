@@ -1,87 +1,85 @@
-
-display_name: "Manufacturing"
-description: "The Manufacturing aspect documents key metadata regarding plant operations."
+display_name: "Data Governance"
+description:  "The Data Governance aspect defines the accountable business owner and indicates whether a dataset is approved for publishing and enterprise use."
 
 labels:
-  env: dev
-  domain: manufacturing
-  location: us-east4
-  data-category: na
-  managed-by: terraform
+  env:           dev
+  domain:        na
+  location:      us-east4
+  managed-by:    terraform
 
 metadata_template: |
   {
-    "name": "manufacturing",
+    "name": "data-governance",
     "type": "record",
     "recordFields": [
       {
-        "name": "plant-id",
-        "type": "enum",
+        "name": "data-owner",
+        "type": "string",
         "index": 1,
         "annotations": {
-          "displayName": "Plant ID",
-          "description": "The unique plant identifier that is producing the referenced data."
+          "displayName": "Data Owner",
+          "description": "The title of the person responsible for the data."
         },
-        "constraints": {
-          "required": false
-        },
-        "enumValues": [
-          { "name": "TBD_1", "index": 1 },
-          { "name": "TBD_2", "index": 2 },
-          { "name": "TBD_3", "index": 3 }
-        ]
+        "constraints": { "required": true }
       },
       {
-        "name": "plant-type",
-        "type": "enum",
+        "name": "data-owner-email",
+        "type": "string",
         "index": 2,
         "annotations": {
-          "displayName": "Plant Type",
-          "description": "The type of products that the plant produces."
+          "displayName": "Data Owner Email",
+          "description": "The email address of the business owner and or their department group."
         },
-        "constraints": {
-          "required": false
-        },
-        "enumValues": [
-          { "name": "TBD_1", "index": 1 },
-          { "name": "TBD_2", "index": 2 },
-          { "name": "TBD_3", "index": 3 }
-        ]
+        "constraints": { "required": true }
       },
       {
-        "name": "sensitivity-level",
-        "type": "enum",
+        "name": "data-steward",
+        "type": "string",
         "index": 3,
         "annotations": {
-          "displayName": "Sensitivity Level",
-          "description": "The Data Sensitivity aspect classifies data sensitivity to inform column protection and sharing"
+          "displayName": "Data Steward",
+          "description": "The title of the person responsible for the data."
         },
-        "constraints": {
-          "required": true
+        "constraints": { "required": true }
+      },
+      {
+        "name": "data-steward-email",
+        "type": "string",
+        "index": 4,
+        "annotations": {
+          "displayName": "Data Steward Email",
+          "description": "The email address of the business owner and or their department group."
         },
+        "constraints": { "required": true }
+      },
+      {
+        "name": "system-of-record",
+        "type": "enum",
+        "index": 5,
+        "annotations": {
+          "displayName": "System of Record",
+          "description": "The system the data originates from."
+        },
+        "constraints": { "required": true },
         "enumValues": [
-          { "name": "Personal_Identifiable_Information_PII", "index": 1 },
-          { "name": "Operational_and_Production_Data", "index": 2 },
-          { "name": "Quality_and_Inspection_Data", "index": 3 },
-          { "name": "Safety_and_Inspection_Data", "index": 4 },
-          { "name": "General_and_Internal_Use", "index": 5 }
+          { "name": "SAP",       "index": 1 },
+          { "name": "Historian", "index": 2 },
+          { "name": "Plant_Apps","index": 3 }
         ]
       },
       {
-        "name": "data-category",
+        "name": "publish-ready",
         "type": "enum",
-        "index": 4,
+        "index": 6,
         "annotations": {
-          "displayName": "Data Category",
-          "description": "The Data Category aspect identifies the type of data within the data sensitivity framework to help organize, understand, and manage it consistently across the organization."
+          "displayName": "Publish Ready",
+          "description": "Publish ready indicates the data is approved by the data owner for governed consumption, subject to classification and sharing rules. Data assets are marked Publish ready only after validation, governance review, and confirmation that the asset is fit for broader consumption."
         },
-        "constraints": {
-          "required": true
-        },
+        "constraints": { "required": true },
         "enumValues": [
-          { "name": "TBD_1", "index": 1 },
-          { "name": "TBD_2", "index": 2 },
-          { "name": "TBD_3", "index": 3 }
+          { "name": "Not_Ready",     "index": 1 },
+          { "name": "In_Process",    "index": 2 },
+          { "name": "Publish_Ready", "index": 3 }
         ]
       }
     ]
