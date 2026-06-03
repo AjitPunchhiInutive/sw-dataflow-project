@@ -47,3 +47,87 @@ zones:
   #       resource_spec_type:     BIGQUERY_DATASET
 
 
+
+
+# # config/dataplex/manufacturing.yaml
+# name:       manufacturing
+# prefix:     dev
+# project_id: sw-dev-udp-ods
+# region:     us-east4
+
+# zones:
+
+#   rds-zone:
+#     display_name: "Raw Data Zone"
+#     description:  "The Raw Data Zone (Raw) serves as the initial landing area for Southwire manufacturing data in its source aligned, unprocessed form. It supports ingestion and early validation activities by preserving data as received, providing a governed foundation for downstream integration and curation within the manufacturing lake."
+#     type:              RAW
+#     resource_spec_type: STANDARD
+#     discovery:
+#       enabled:       true
+#       cron_schedule: "0 4 * * *"    # Daily 12:00am EDT (UTC-4) = 04:00 UTC
+#     assets:
+#       ot-historian-tags:
+#         display_name:           "OT Historian Tags"
+#         description:            "Streaming machine tag data from proficiey."
+#         resource_name:          udp_dev_proficy_pubsub_bq_gcs
+#         cron_schedule:          null
+#         discovery_spec_enabled: true
+#         resource_spec_type:     BIGQUERY_DATASET
+
+#       plant-reference:
+#         display_name:           "Plant Reference"
+#         description:            "SAP plant details."
+#         resource_name:          snowflake_iceberg
+#         cron_schedule:          null
+#         discovery_spec_enabled: true
+#         resource_spec_type:     BIGQUERY_DATASET
+
+#       plant-operations-north-campus:
+#         display_name:           "Plant Operations-North Campus"
+#         description:            "Plants apps data from North Campus."
+#         resource_name:          swigwcfprddb1_soadbprod_dev
+#         cron_schedule:          null
+#         discovery_spec_enabled: true
+#         resource_spec_type:     BIGQUERY_DATASET
+
+#   eds-zone:
+#     display_name: "Transformation Zone"
+#     description:  "The Transformation (EDS) Zone represents the standardized and integrated layer of Southwire manufacturing data, where data is cleansed, conformed, and enriched for downstream use. It supports transformation, validation, and data quality enforcement, providing trusted datasets for controlled consumption, including near-real-time and streaming use cases, and serving as the foundation for final curation within the manufacturing lake."
+#     type:              CURATED
+#     resource_spec_type: STANDARD
+#     discovery:
+#       enabled:       true
+#       cron_schedule: "0 4 * * *"    # Daily 12:00am EDT (UTC-4) = 04:00 UTC
+#     assets:
+#       manufacturing-eds:
+#         display_name:           "Manufacturing EDS"
+#         description:            "Transformed data used as a source for final consumption."
+#         resource_name:          eds_manufacturing
+#         cron_schedule:          null
+#         discovery_spec_enabled: true
+#         resource_spec_type:     BIGQUERY_DATASET
+
+#   ods-zone:
+#     display_name: "Consumption Zone"
+#     description:  "The Consumption (Curated/ODS) zone represents the final, consumption-ready layer of Southwire manufacturing data, where data is refined and optimized for business use. It supports governed access to certified datasets for analytics, reporting, and AI use cases, providing a consistent and trusted foundation for enterprise consumption within the manufacturing lake."
+#     type:              CURATED
+#     resource_spec_type: STANDARD
+#     discovery:
+#       enabled:       false
+#       cron_schedule: null
+#     assets:
+#       manufacturing-consumption:
+#         display_name:           "Manufacturing Consumption"
+#         description:            "Curated manufacturing data for specific assets. (Looker dashboards for example)"
+#         resource_name:          ods_manufacturing_consumption
+#         cron_schedule:          null
+#         discovery_spec_enabled: false
+#         resource_spec_type:     BIGQUERY_DATASET
+
+#       manufacturing-ods:
+#         display_name:           "Manufacturing ODS"
+#         description:            "Full curated manufacturing data for general use."
+#         resource_name:          ods_manufacturing
+#         cron_schedule:          null
+#         discovery_spec_enabled: false
+#         resource_spec_type:     BIGQUERY_DATASET
