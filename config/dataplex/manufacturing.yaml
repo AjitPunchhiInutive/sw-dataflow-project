@@ -5,6 +5,8 @@ project_id: sw-dev-prj-sandbox
 region: us-east4
 zones:
   rds:
+    display_name: "Raw Data Zone"
+    description:  "The Raw Data Zone"
     type: RAW
     discovery: true
     assets:
@@ -43,3 +45,5 @@ zones:
   #       cron_schedule:          null
   #       discovery_spec_enabled: false
   #       resource_spec_type:     BIGQUERY_DATASET
+
+
