@@ -23,7 +23,7 @@ metadata_template: |
         },
         "constraints": { "required": false },
         "enumValues": [
-          { "name": "Plant_1", "index": 1 }
+          { "name": "plant 1", "index": 1 }
         ]
       },
       {
