@@ -19,7 +19,7 @@ locals {
     can(file_val.tables) ? {
       for table_key, table_val in file_val.tables :
       "${file_key}/${table_key}" => {
-        project_id   = lookup(file_val, "log_project_id", var.log_project_id)
+        log_project_id   = lookup(file_val, "log_project_id", var.log_project_id)
         dataset_id   = table_val.dataset_id
         table_id     = table_val.table_id
         taxonomy_key = table_val.taxonomy_key
