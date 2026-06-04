@@ -8,9 +8,9 @@ locals {
   ]...)
 
   _bq_column_tag_files = {
-    for f in fileset("${path.module}/config/bq-column-tags", "*.yaml") :
+    for f in fileset("${path.module}/config/dataplex", "*.yaml") :
     trimsuffix(f, ".yaml") => yamldecode(
-      file("${path.module}/config/bq-column-tags/${f}")
+      file("${path.module}/config/dataplex/${f}")
     )
   }
 
