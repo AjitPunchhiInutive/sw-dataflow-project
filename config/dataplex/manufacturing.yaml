@@ -1,30 +1,36 @@
 # config/dataplex/manufacturing.yaml
-name: manufacturing
-prefix: dev
+
+name:       manufacturing
+prefix:     dev
 project_id: sw-dev-prj-sandbox
-region: us-east4
+region:     us-east4
+
 zones:
   rds:
     display_name: "Raw Data Zone"
     description:  "The Raw Data Zone"
-    type: RAW
-    discovery: true
+    type:         RAW
+    discovery:    true
+
     assets:
+
       ot-telemetry:
-        resource_project_id:  melodic-furnace-403022
+        resource_project_id:    melodic-furnace-403022
         resource_name:          sample_test
         cron_schedule:          null
         discovery_spec_enabled: true
         resource_spec_type:     BIGQUERY_DATASET
+
       plant-reference:
+        resource_project_id:    sw-dev-prj-sandbox
         resource_name:          raw_dev_eds
         cron_schedule:          null
         discovery_spec_enabled: true
         resource_spec_type:     BIGQUERY_DATASET
+
       plant-operations:
+        resource_project_id:    sw-dev-prj-sandbox
         resource_name:          pubsub_gcs_dataflow
         cron_schedule:          null
         discovery_spec_enabled: true
         resource_spec_type:     BIGQUERY_DATASET
-
-  
