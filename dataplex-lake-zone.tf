@@ -21,22 +21,23 @@ locals {
 
   # ── Only resolve resource_project_id fallback, DO NOT build full path ──
   dataplex_configs_resolved = {
-    for lake_key, lake_val in local.dataplex_configs :
-    lake_key => merge(lake_val, {
-      zones = {
-        for zone_key, zone_val in lake_val.zones :
-        zone_key => merge(zone_val, {
-          assets = {
-            for asset_key, asset_val in zone_val.assets :
-            asset_key => merge(asset_val, {
-              # Only set resource_project_id fallback — keep resource_name as raw dataset name
-              resource_project_id = lookup(asset_val, "resource_project_id", lake_val.project_id)
-            })
-          }
-        })
-      }
-    })
-  }
+  for lake_key, lake_val in local.dataplex_configs :
+  lake_key => merge(lake_val, {
+    zones = {
+      for zone_key, zone_val in lake_val.zones :
+      zone_key => merge(zone_val, {
+        assets = {
+          for asset_key, asset_val in zone_val.assets :
+          asset_key => merge(asset_val, {
+            # Overwrite resource_project_id with resolved value
+            # so module always gets the correct project
+            resource_project_id = lookup(asset_val, "resource_project_id", lake_val.project_id)
+          })
+        }
+      })
+    }
+  })
+}
 }
 
 module "dataplex" {
