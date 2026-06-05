@@ -46,3 +46,6 @@ scans:
         publish_to_bigquery: true
         bigquery_export:
           results_table: "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/dataplex_profile_results/tables/historian_stream_error_profile"
+
+
+          
