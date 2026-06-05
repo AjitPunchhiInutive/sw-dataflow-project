@@ -19,23 +19,22 @@ locals {
     if can(val.project_id) && can(val.region) && can(val.zones)
   }
 
-  dataplex_configs_resolved = {
-    for lake_key, lake_val in local.dataplex_configs :
-    lake_key => merge(lake_val, {
-      zones = {
-        for zone_key, zone_val in lake_val.zones :
-        zone_key => merge(zone_val, {
-          assets = {
-            for asset_key, asset_val in zone_val.assets :
-            asset_key => merge(asset_val, {
-              # use try() instead of lookup() for YAML-decoded objects
-              resource_project_id = try(asset_val.resource_project_id, lake_val.project_id)
-            })
-          }
-        })
-      }
-    })
-  }
+ dataplex_configs_resolved = {
+  for lake_key, lake_val in local.dataplex_configs :
+  lake_key => merge(lake_val, {
+    zones = {
+      for zone_key, zone_val in lake_val.zones :
+      zone_key => merge(zone_val, {
+        assets = {
+          for asset_key, asset_val in zone_val.assets :
+          asset_key => merge(asset_val, {
+            resource_project = try(asset_val.resource_project, lake_val.project_id)  # ← use resource_project
+          })
+        }
+      })
+    }
+  })
+}
 }
 
 module "dataplex" {
