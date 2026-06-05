@@ -1,86 +1,86 @@
-display_name: "Data Governance"
-description:  "The Data Governance aspect defines the accountable business owner and indicates whether a dataset is approved for publishing and enterprise use."
+# display_name: "Data Governance"
+# description:  "The Data Governance aspect defines the accountable business owner and indicates whether a dataset is approved for publishing and enterprise use."
 
-labels:
-  env:           dev
-  domain:        na
-  location:      us-east4
-  managed-by:    terraform
+# labels:
+#   env:           dev
+#   domain:        na
+#   location:      us-east4
+#   managed-by:    terraform
 
-metadata_template: |
-  {
-    "name": "data-governance",
-    "type": "record",
-    "recordFields": [
-      {
-        "name": "data-owner",
-        "type": "string",
-        "index": 1,
-        "annotations": {
-          "displayName": "Data Owner",
-          "description": "The title of the person responsible for the data."
-        },
-        "constraints": { "required": true }
-      },
-      {
-        "name": "data-owner-email",
-        "type": "string",
-        "index": 2,
-        "annotations": {
-          "displayName": "Data Owner Email",
-          "description": "The email address of the business owner and or their department group."
-        },
-        "constraints": { "required": true }
-      },
-      {
-        "name": "data-steward",
-        "type": "string",
-        "index": 3,
-        "annotations": {
-          "displayName": "Data Steward",
-          "description": "The title of the person responsible for the data."
-        },
-        "constraints": { "required": true }
-      },
-      {
-        "name": "data-steward-email",
-        "type": "string",
-        "index": 4,
-        "annotations": {
-          "displayName": "Data Steward Email",
-          "description": "The email address of the business owner and or their department group."
-        },
-        "constraints": { "required": true }
-      },
-      {
-        "name": "system-of-record",
-        "type": "enum",
-        "index": 5,
-        "annotations": {
-          "displayName": "System of Record",
-          "description": "The system the data originates from."
-        },
-        "constraints": { "required": true },
-        "enumValues": [
-          { "name": "SAP",       "index": 1 },
-          { "name": "Historian", "index": 2 },
-          { "name": "Plant_Apps","index": 3 }
-        ]
-      },
-      {
-        "name": "publish-ready",
-        "type": "enum",
-        "index": 6,
-        "annotations": {
-          "displayName": "Publish Ready",
-          "description": "Publish ready indicates the data is approved by the data owner for governed consumption, subject to classification and sharing rules. Data assets are marked Publish ready only after validation, governance review, and confirmation that the asset is fit for broader consumption."
-        },
-        "constraints": { "required": true },
-        "enumValues": [
-          { "name": "Not_Ready",     "index": 1 },
-          { "name": "In_Process",    "index": 2 },
-          { "name": "Publish_Ready", "index": 3 }
-        ]
-      }
-    ]
-  }
+# metadata_template: |
+#   {
+#     "name": "data-governance",
+#     "type": "record",
+#     "recordFields": [
+#       {
+#         "name": "data-owner",
+#         "type": "string",
+#         "index": 1,
+#         "annotations": {
+#           "displayName": "Data Owner",
+#           "description": "The title of the person responsible for the data."
+#         },
+#         "constraints": { "required": true }
+#       },
+#       {
+#         "name": "data-owner-email",
+#         "type": "string",
+#         "index": 2,
+#         "annotations": {
+#           "displayName": "Data Owner Email",
+#           "description": "The email address of the business owner and or their department group."
+#         },
+#         "constraints": { "required": true }
+#       },
+#       {
+#         "name": "data-steward",
+#         "type": "string",
+#         "index": 3,
+#         "annotations": {
+#           "displayName": "Data Steward",
+#           "description": "The title of the person responsible for the data."
+#         },
+#         "constraints": { "required": true }
+#       },
+#       {
+#         "name": "data-steward-email",
+#         "type": "string",
+#         "index": 4,
+#         "annotations": {
+#           "displayName": "Data Steward Email",
+#           "description": "The email address of the business owner and or their department group."
+#         },
+#         "constraints": { "required": true }
+#       },
+#       {
+#         "name": "system-of-record",
+#         "type": "enum",
+#         "index": 5,
+#         "annotations": {
+#           "displayName": "System of Record",
+#           "description": "The system the data originates from."
+#         },
+#         "constraints": { "required": true },
+#         "enumValues": [
+#           { "name": "SAP",       "index": 1 },
+#           { "name": "Historian", "index": 2 },
+#           { "name": "Plant_Apps","index": 3 }
+#         ]
+#       },
+#       {
+#         "name": "publish-ready",
+#         "type": "enum",
+#         "index": 6,
+#         "annotations": {
+#           "displayName": "Publish Ready",
+#           "description": "Publish ready indicates the data is approved by the data owner for governed consumption, subject to classification and sharing rules. Data assets are marked Publish ready only after validation, governance review, and confirmation that the asset is fit for broader consumption."
+#         },
+#         "constraints": { "required": true },
+#         "enumValues": [
+#           { "name": "Not_Ready",     "index": 1 },
+#           { "name": "In_Process",    "index": 2 },
+#           { "name": "Publish_Ready", "index": 3 }
+#         ]
+#       }
+#     ]
+#   }
