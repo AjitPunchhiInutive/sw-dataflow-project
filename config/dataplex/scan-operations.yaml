@@ -1,51 +1,64 @@
-# ── Manufacturing Data Profile Scans ────────────────────────────────────────
-# One file, multiple table scans.
-# Each key under `scans:` becomes the scan ID.
-# ─────────────────────────────────────────────────────────────────────────────
+# # ── Manufacturing Data Profile Scans ────────────────────────────────────────
+# # One file, multiple table scans.
+# # Each key under `scans:` becomes the scan ID.
+# # ─────────────────────────────────────────────────────────────────────────────
 
-project_id: sw-dev-prj-sandbox
-region:     us-east4
+# project_id: sw-dev-prj-sandbox
+# region:     us-east4
 
-scans:
+# scans:
 
-  ot-telemetry-profile:
-    data:
-      resource: "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/pubsub_gcs_dataflow/tables/historian_stream"
-    data_profile_spec:
-      sampling_percent: 20
-      row_filter:       null
-      include_fields:   null
-      exclude_fields:   null
-      post_scan_actions:
-        publish_to_bigquery: true
-        bigquery_export:
-          results_table: "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/dataplex_profile_results/tables/historian_stream_profile"
+#   ot-telemetry-profile:
+#     data:
+#       resource: "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/pubsub_gcs_dataflow/tables/historian_stream"
+#     data_profile_spec:
+#       sampling_percent: 20
+#       row_filter:       null
+#       include_fields:   null
+#       exclude_fields:   null
+#       post_scan_actions:
+#         publish_to_bigquery: true
+#         bigquery_export:
+#           results_table: "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/dataplex_profile_results/tables/historian_stream_profile"
 
-  plant-reference-profile:
-    data:
-      resource: "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/pubsub_gcs_dataflow/tables/historian_stream_demo"
-    data_profile_spec:
-      sampling_percent: 20
-      row_filter:       null
-      include_fields:   null
-      exclude_fields:   null
-      post_scan_actions:
-        publish_to_bigquery: true
-        bigquery_export:
-          results_table: "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/dataplex_profile_results/tables/historian_stream_demo_profile"
+#   plant-reference-profile:
+#     data:
+#       resource: "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/pubsub_gcs_dataflow/tables/historian_stream_demo"
+#     data_profile_spec:
+#       sampling_percent: 20
+#       row_filter:       null
+#       include_fields:   null
+#       exclude_fields:   null
+#       post_scan_actions:
+#         publish_to_bigquery: true
+#         bigquery_export:
+#           results_table: "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/dataplex_profile_results/tables/historian_stream_demo_profile"
 
-  plant-operations-profile:
-    data:
-      resource: "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/pubsub_gcs_dataflow/tables/historian_stream_error"
-    data_profile_spec:
-      sampling_percent: 20
-      row_filter:       null
-      include_fields:   null
-      exclude_fields:   null
-      post_scan_actions:
-        publish_to_bigquery: true
-        bigquery_export:
-          results_table: "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/dataplex_profile_results/tables/historian_stream_error_profile"
+#   plant-operations-profile:
+#     data:
+#       resource: "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/pubsub_gcs_dataflow/tables/historian_stream_error"
+#     data_profile_spec:
+#       sampling_percent: 20
+#       row_filter:       null
+#       include_fields:   null
+#       exclude_fields:   null
+#       post_scan_actions:
+#         publish_to_bigquery: true
+#         bigquery_export:
+#           results_table: "//bigquery.googleapis.com/projects/sw-dev-prj-sandbox/datasets/dataplex_profile_results/tables/historian_stream_error_profile"
 
 
-          
+#   ps-fact-oee-performance:
+#     data:
+#       resource: "//bigquery.googleapis.com/projects/sw-dev-udp-ods/datasets/ods_manufacturing/tables/fact-oee-performance"
+#     data_profile_spec:
+#       sampling_percent: 10
+#       row_filter:       null
+#       include_fields:   null
+#       exclude_fields:   null
+#       post_scan_actions:
+#         publish_to_bigquery: true
+#         bigquery_export:
+#           results_table: "//bigquery.googleapis.com/projects/sw-dev-udp-ods/datasets/ps_ods_manufacturing/tables/fact-oee-performance_results"
+#       schedule:
+#         cron: "0 4 * * 0"    # Weekly Sunday 12:00am EDT (UTC-4) = 04:00 UTC

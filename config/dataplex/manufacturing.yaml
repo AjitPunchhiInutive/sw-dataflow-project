@@ -1,9 +1,9 @@
-# config/dataplex/manufacturing.yaml
-
-name:       manufacturing
-prefix:     dev
-project_id: sw-dev-prj-sandbox
-region:     us-east4
+name:         manufacturing
+display_name: "Manufacturing Data Lake"
+description:  "Data lake for manufacturing domain including OT telemetry, plant reference, and operations data"
+prefix:       dev
+project_id:   sw-dev-prj-sandbox
+region:       us-east4
 
 zones:
   rds:
@@ -15,21 +15,27 @@ zones:
     assets:
 
       ot-telemetry:
-        resource_project:    melodic-furnace-403022
+        display_name:           "OT Telemetry"
+        description:            "Operational technology telemetry data from plant sensors and equipment"
+        resource_project:       melodic-furnace-403022
         resource_name:          sample_test
         cron_schedule:          null
         discovery_spec_enabled: true
         resource_spec_type:     BIGQUERY_DATASET
 
       plant-reference:
-        resource_project:    sw-dev-prj-sandbox
+        display_name:           "Plant Reference"
+        description:            "Reference data for plant configuration, metadata, and master records"
+        resource_project:       sw-dev-prj-sandbox
         resource_name:          raw_dev_eds
         cron_schedule:          null
         discovery_spec_enabled: true
         resource_spec_type:     BIGQUERY_DATASET
 
       plant-operations:
-        resource_project:    sw-dev-prj-sandbox
+        display_name:           "Plant Operations"
+        description:            "Plant operations data ingested via Pub/Sub, GCS, and Dataflow pipelines"
+        resource_project:       sw-dev-prj-sandbox
         resource_name:          pubsub_gcs_dataflow
         cron_schedule:          null
         discovery_spec_enabled: true
