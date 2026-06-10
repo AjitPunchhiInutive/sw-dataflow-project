@@ -12,7 +12,7 @@ zones:
     description:   "The Raw Data Zone"
     type:          RAW
     discovery:     true
-    cron_schedule: "0 4 * * *"    # Daily 12:00am EDT (UTC-4) = 04:00 UTC — inherited by all assets
+    cron_schedule: "0 4 * * *"    # Daily 12:00am EDT (UTC-4) = 04:00 UTC
 
     assets:
 
@@ -21,7 +21,7 @@ zones:
         description:            "Reference data for plant configuration, metadata, and master records"
         resource_project:       sw-dev-prj-sandbox
         resource_name:          raw_dev_eds
-        cron_schedule:          null    # inherited from parent zone
+        cron_schedule:          null    # inherited from rds zone
         discovery_spec_enabled: true
         resource_spec_type:     BIGQUERY_DATASET
 
@@ -30,6 +30,6 @@ zones:
         description:            "Plant operations data ingested via Pub/Sub, GCS, and Dataflow pipelines"
         resource_project:       sw-dev-prj-sandbox
         resource_name:          pubsub_gcs_dataflow
-        cron_schedule:          null    # inherited from parent zone
+        cron_schedule:          null    # inherited from rds zone
         discovery_spec_enabled: true
         resource_spec_type:     BIGQUERY_DATASET
