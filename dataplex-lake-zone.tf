@@ -28,13 +28,13 @@ locals {
           assets = {
             for asset_key, asset_val in zone_val.assets :
             asset_key => merge(asset_val, {
-              # ── Only resolve resource_project — cron handled by module ──
               resource_project = try(asset_val.resource_project, lake_val.project_id)
-              # ── Pass null for inherited/unset — module resolves from zone ──
+              # ── Resolve cron here — null/"inherited" → inherit from zone ──
               cron_schedule = (
+                try(asset_val.cron_schedule, null) == null ||
                 try(asset_val.cron_schedule, null) == "inherited"
-                ? null                              # ← module will inherit from zone
-                : try(asset_val.cron_schedule, null)
+                ? try(zone_val.cron_schedule, null)  # ← resolved from zone
+                : asset_val.cron_schedule            # ← use asset's own value
               )
             })
           }
