@@ -1,7 +1,7 @@
 project_id: "sw-dev-prj-itp-secrets"
 location:   "us-east4"
 
-name: "Data Sensitivity"
+name: "Data Sensitivity test"
 description: "Defines the L1-L4 policy tags used in BigQuery to enforce column-level access control, restricting the use of sensitive data to authorized users based on IAM permissions."
 
 # ── Tag hierarchy ─────────────────────────────────────────────────────────────
