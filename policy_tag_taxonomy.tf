@@ -18,11 +18,12 @@ locals {
     for file_key, file_val in local._policy_tag_files :
     can(file_val.taxonomies) ? {
       for tax_key, tax_val in file_val.taxonomies :
-      tax_key => {
-        project_id           = file_val.project_id
-        location             = file_val.location
-        name                 = tax_val.name
-        tags                 = tax_val.tags
+      "${file_val.project_id}-${tax_key}" => {          # ← unique key per project
+        project_id  = file_val.project_id
+        location    = file_val.location
+        name        = tax_val.name
+        description = try(tax_val.description, null)
+        tags        = tax_val.tags
       }
     } : {}
   ]...)
@@ -31,11 +32,12 @@ locals {
   # OLD format — file has `name:` and `tags:` directly (no `taxonomies:` block)
   _single_taxonomy_configs = {
     for file_key, file_val in local._policy_tag_files :
-    file_key => {
-      project_id            = file_val.project_id
-      location              = file_val.location
-      name                  = file_val.name
-      tags                  = file_val.tags
+    "${file_val.project_id}-${file_key}" => {           # ← unique key per project
+      project_id  = file_val.project_id
+      location    = file_val.location
+      description = try(file_val.description, null)
+      name        = file_val.name
+      tags        = file_val.tags
     }
     if !can(file_val.taxonomies) && can(file_val.tags)
   }
@@ -52,9 +54,14 @@ module "policy_tag_taxonomy" {
   for_each   = local.taxonomy_configs
   source     = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//data-catalog-policy-tag?ref=main"
 
-  name       = each.value.name
-  project_id = each.value.project_id
-  location   = each.value.location
-  tags       = each.value.tags
+  name        = each.value.name
+  description = each.value.description
+  project_id  = each.value.project_id
+  location    = each.value.location
+  tags        = each.value.tags
+}
 
+# ── Debug output to verify unique keys ────────────────────────────────────
+output "taxonomy_config_keys" {
+  value = keys(local.taxonomy_configs)
 }
