@@ -18,9 +18,13 @@ RUN apt-get update && \
 COPY requirements.txt /tmp/requirements.txt
 
 # ── CVE fixes ──────────────────────────────────────────────────────────
-# CVE-2026-3219  : pip ≤ 26.0.x
-# CVE-2026-24049 : wheel ≤ 0.46.1
-# CVE-2026-23949 : jaraco.context ≥ 5.2.0,< 6.1.0
+# CVE-2026-3219  : pip ≤ 26.0.x  — concatenated tar+ZIP treated as ZIP
+#                  → upgrade to pip 26.1.1
+# CVE-2026-24049 : wheel ≤ 0.46.1 — path traversal in wheel unpack
+#                  → upgrade to wheel 0.46.3
+# CVE-2026-23949 : jaraco.context ≥ 5.2.0,< 6.1.0 (vendored in setuptools)
+#                  — Zip Slip in tarball() function
+#                  → upgrade to setuptools 82.0.1 (vendors jaraco.context 6.1.0+)
 # ───────────────────────────────────────────────────────────────────────
 RUN pip install --no-cache-dir \
         "pip==26.1.1" \
@@ -28,15 +32,24 @@ RUN pip install --no-cache-dir \
         "wheel==0.46.3" && \
     pip install --no-cache-dir -r /tmp/requirements.txt
 
-# ── Stage 3: clean runtime ───────────────────────────────────────────
+# ── Stage 3: clean runtime (no build tools, no libmbedtls) ───────────
 FROM python:3.11.15-slim
 
 RUN apt-get update && \
     apt-get upgrade -y --no-install-recommends && \
     apt-get install -y --no-install-recommends \
         default-jre-headless && \
+    # ── CVE-2026-12087: Perl Socket < 2.041 — out-of-bounds heap read ──
+    # Upgrade system Perl Socket module to 2.041+ via cpan
+    apt-get install -y --no-install-recommends \
+        perl \
+        cpanminus && \
+    cpanm --notest Socket@2.041 && \
+    # Remove cpanminus after patching to keep image lean
+    apt-get purge -y cpanminus && \
+    apt-get autoremove -y && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* /root/.cpanm
 
 # ── Upgrade pip/setuptools/wheel in the runtime layer too ─────────────
 RUN pip install --no-cache-dir \
@@ -44,14 +57,11 @@ RUN pip install --no-cache-dir \
         "setuptools==82.0.1" \
         "wheel==0.46.3"
 
-# ── Create non-root user WITH a real home directory ───────────────────
-# --no-create-home was the problem: pip, the launcher, and Beam all need
-# a writable $HOME for caches and staging files.
+# Create non-root user and group
 RUN groupadd --gid 1001 appgroup && \
     useradd --uid 1001 \
             --gid appgroup \
-            --create-home \
-            --home-dir /home/appuser \
+            --no-create-home \
             --shell /sbin/nologin \
             appuser
 
@@ -66,27 +76,16 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages \
                     /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy application files
+# Copy application files with ownership set at copy time
 COPY --chown=appuser:appgroup requirements.txt      /template/requirements.txt
 COPY --chown=appuser:appgroup oden_pubsub_to_gcs.py /template/oden_pubsub_to_gcs.py
 
-# Give appuser read+execute on /template and read-only on files
-# 750 instead of 550 so the owner (appuser) retains full access
-RUN chmod 750 /template && \
+# Tighten permissions: owner+group read/execute on dir, read-only on files
+RUN chmod 550 /template && \
     chmod 440 /template/requirements.txt \
               /template/oden_pubsub_to_gcs.py
 
-# Give appuser a writable home and cache directory
-RUN mkdir -p /home/appuser/.cache && \
-    chown -R appuser:appgroup /home/appuser
-
-# ── Point tools at writable paths ─────────────────────────────────────
-ENV HOME=/home/appuser \
-    XDG_CACHE_HOME=/home/appuser/.cache \
-    PIP_NO_CACHE_DIR=1 \
-    TMPDIR=/tmp \
-    FLEX_TEMPLATE_PYTHON_PY_FILE=/template/oden_pubsub_to_gcs.py \
-    FLEX_TEMPLATE_PYTHON_REQUIREMENTS_FILE=/template/requirements.txt
+ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/oden_pubsub_to_gcs.py
 
 HEALTHCHECK --interval=30s \
             --timeout=10s \
@@ -95,8 +94,5 @@ HEALTHCHECK --interval=30s \
     CMD test -x /opt/google/dataflow/python_template_launcher || exit 1
 
 WORKDIR /template
-
-# ── Switch to non-root user ───────────────────────────────────────────
-USER 1001
 
 ENTRYPOINT ["/opt/google/dataflow/python_template_launcher"]
