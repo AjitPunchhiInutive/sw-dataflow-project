@@ -83,31 +83,31 @@ module "bigquery-dataset" {
   }
 }
 
-# module "pubsub" {
-#   source     = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//pubsub?ref=main"
-#   project_id = var.log_project_id
-#   name       = "pubsub-historian-dataflow_topic"
-#   message_retention_duration = "604800s"
-#   subscriptions = {
-#     "proficy-historian-topic" = {
-#       ack_deadline_seconds         = 20
-#       message_retention_duration   = "604800s" # 7 days
-#       retain_acked_messages        = false
-#       filter                       = null
-#       enable_message_ordering      = false
-#       enable_exactly_once_delivery = false
-#       expiration_policy_ttl        = null
-#       push                         = null
-#       bigquery                     = null
-#       cloud_storage                = null
-#       dead_letter_policy           = null
-#       retry_policy = {
-#         minimum_backoff = 10  # seconds
-#         maximum_backoff = 600 # seconds
-#       }
-#     }
-#   }
-# }
+module "pubsub" {
+  source     = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//pubsub?ref=main"
+  project_id = var.log_project_id
+  name       = "pubsub-historian-dataflow_topic"
+  message_retention_duration = "604800s"
+  subscriptions = {
+    "proficy-historian-topic" = {
+      ack_deadline_seconds         = 600
+      message_retention_duration   = "604800s" # 7 days
+      retain_acked_messages        = false
+      filter                       = null
+      enable_message_ordering      = false
+      enable_exactly_once_delivery = false
+      expiration_policy_ttl        = null
+      push                         = null
+      bigquery                     = null
+      cloud_storage                = null
+      dead_letter_policy           = null
+      retry_policy = {
+        minimum_backoff = 10  # seconds
+        maximum_backoff = 600 # seconds
+      }
+    }
+  }
+}
 module "docker_artifact_registry"{
   source     = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//artifact-registry?ref=main"
   project_id = var.log_project_id

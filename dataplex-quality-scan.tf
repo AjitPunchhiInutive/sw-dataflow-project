@@ -4,7 +4,7 @@
 
 # locals {
 
-#   # ── Step 1: load all YAML files ──────────────────────────────────────────
+#   # ── Step 1: load all YAML files ──────────────────────────────────────────921656
 #   _datascan_quality_raw = {
 #     for f in fileset("${path.module}/config/dataplex-quality-scans", "*.yaml") :
 #     trimsuffix(f, ".yaml") => yamldecode(
