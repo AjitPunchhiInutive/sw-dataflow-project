@@ -42,7 +42,7 @@ RUN apt-get update && \
     dpkg --purge --force-depends \
         perl \
         perl-base \
-        perl-modules-5.36 \
+        perl-modules-5.40 \
         libperl5.36 2>/dev/null || true && \
     apt-get autoremove -y && \
     apt-get clean && \
