@@ -60,13 +60,11 @@ RUN pip install --no-cache-dir \
         "wheel==0.46.3"
 
 # Create non-root user and group
-RUN groupadd --gid 1001 appgroup && \
-    useradd --uid 1001 \
-            --gid appgroup \
-            --no-create-home \
-            --shell /sbin/nologin \
-            appuser
-
+RUN groupadd --system appgroup \
+    && useradd --system --no-create-home --gid appgroup appuser \
+    && mkdir -p /template \
+    && chown -R appuser:appgroup /template
+    
 # Copy the launcher binary
 COPY --from=launcher \
     /opt/google/dataflow/python_template_launcher \
