@@ -31,6 +31,8 @@ RUN pip install --no-cache-dir \
 # ── Stage 3: clean runtime (glibc — required by Dataflow launcher) ────
 FROM python:3.11.15-slim
 
+ENV DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get update && \
     apt-get upgrade -y --no-install-recommends && \
     apt-get install -y --no-install-recommends \
@@ -59,11 +61,11 @@ RUN pip install --no-cache-dir \
         "setuptools==82.0.1" \
         "wheel==0.46.3"
 
-# Create non-root user and group
-RUN groupadd --system appgroup \
-    && useradd --system --no-create-home --gid appgroup appuser \
+# Create non-root user and group with fixed UID/GID
+RUN groupadd --system --gid 10001 appgroup \
+    && useradd --system --no-create-home --uid 10001 --gid appgroup appuser \
     && mkdir -p /template \
-    && chown -R appuser:appgroup /template
+    && chown -R 10001:10001 /template
 
 # Copy the launcher binary
 COPY --from=launcher \
@@ -77,8 +79,8 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages \
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application files with ownership set at copy time
-COPY --chown=appuser:appgroup requirements.txt      /template/requirements.txt
-COPY --chown=appuser:appgroup oden_pubsub_to_gcs.py /template/oden_pubsub_to_gcs.py
+COPY --chown=10001:10001 requirements.txt      /template/requirements.txt
+COPY --chown=10001:10001 oden_pubsub_to_gcs.py /template/oden_pubsub_to_gcs.py
 
 # Tighten permissions
 RUN chmod 550 /template && \
@@ -88,7 +90,7 @@ RUN chmod 550 /template && \
 # Grant non-root user access to directories required by Dataflow SDK
 RUN mkdir -p /tmp /var/log /var/log/dataflow /var/opt/google \
              /opt/apache/beam /dataflow/template && \
-    chown -R appuser:appgroup \
+    chown -R 10001:10001 \
         /tmp \
         /var/log \
         /var/log/dataflow \
@@ -97,7 +99,7 @@ RUN mkdir -p /tmp /var/log /var/log/dataflow /var/opt/google \
         /opt/google/dataflow \
         /dataflow/template \
         /usr/local/lib/python3.11/site-packages && \
-    chmod -R 777 /tmp
+    chmod -R 1777 /tmp
 
 ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/oden_pubsub_to_gcs.py
 
@@ -107,7 +109,8 @@ HEALTHCHECK --interval=30s \
             --retries=3 \
     CMD test -x /opt/google/dataflow/python_template_launcher || exit 1
 
-USER appuser:appgroup
+# CIS Docker v1.5.0 - 4.1: Run as non-root using numeric UID:GID
+USER 10001:10001
 
 WORKDIR /template
 
