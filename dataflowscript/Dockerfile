@@ -1,9 +1,9 @@
 # ── Stage 1: Dataflow launcher binary ─────────────────────────────────
 FROM gcr.io/dataflow-templates-base/python311-template-launcher-base:20260413-rc01 AS launcher
-
+ 
 # ── Stage 2: build Python dependencies (throwaway) ───────────────────
 FROM python:3.11.15-slim AS builder
-
+ 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         gcc \
@@ -14,9 +14,9 @@ RUN apt-get update && \
         cargo \
         git && \
     rm -rf /var/lib/apt/lists/*
-
+ 
 COPY requirements.txt /tmp/requirements.txt
-
+ 
 # ── CVE fixes ──────────────────────────────────────────────────────────
 # CVE-2026-3219  : pip ≤ 26.0.x  → upgrade to pip 26.1.1
 # CVE-2026-24049 : wheel ≤ 0.46.1 → upgrade to wheel 0.46.3
@@ -27,12 +27,10 @@ RUN pip install --no-cache-dir \
         "setuptools==82.0.1" \
         "wheel==0.46.3" && \
     pip install --no-cache-dir -r /tmp/requirements.txt
-
+ 
 # ── Stage 3: clean runtime (glibc — required by Dataflow launcher) ────
 FROM python:3.11.15-slim
-
-ENV DEBIAN_FRONTEND=noninteractive
-
+ 
 RUN apt-get update && \
     apt-get upgrade -y --no-install-recommends && \
     apt-get install -y --no-install-recommends \
@@ -54,68 +52,49 @@ RUN apt-get update && \
         /usr/lib/perl* \
         /usr/share/perl* \
         /usr/share/perl5
-
+ 
 # ── Upgrade pip/setuptools/wheel in the runtime layer too ─────────────
 RUN pip install --no-cache-dir \
         "pip==26.1.2" \
         "setuptools==82.0.1" \
         "wheel==0.46.3"
-
-# Create non-root user and group with fixed UID/GID
-RUN groupadd --system --gid 10001 appgroup \
-    && useradd --system --no-create-home --uid 10001 --gid appgroup appuser \
-    && mkdir -p /template \
-    && chown -R 10001:10001 /template
-
+ 
+# Create non-root user and group
+RUN groupadd --gid 1001 appgroup && \
+    useradd --uid 1001 \
+            --gid appgroup \
+            --no-create-home \
+            --shell /sbin/nologin \
+            appuser
+ 
 # Copy the launcher binary
 COPY --from=launcher \
     /opt/google/dataflow/python_template_launcher \
     /opt/google/dataflow/python_template_launcher
-RUN chmod 755 /opt/google/dataflow/python_template_launcher
-
+RUN chmod +x /opt/google/dataflow/python_template_launcher
+ 
 # Copy compiled Python packages from the builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages \
                     /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
-
+ 
 # Copy application files with ownership set at copy time
-COPY --chown=10001:10001 requirements.txt      /template/requirements.txt
-COPY --chown=10001:10001 oden_pubsub_to_gcs.py /template/oden_pubsub_to_gcs.py
-
+COPY --chown=appuser:appgroup requirements.txt      /template/requirements.txt
+COPY --chown=appuser:appgroup oden_pubsub_to_gcs.py /template/oden_pubsub_to_gcs.py
+ 
 # Tighten permissions
 RUN chmod 550 /template && \
     chmod 440 /template/requirements.txt \
               /template/oden_pubsub_to_gcs.py
-
-# Grant non-root user access to directories required by Dataflow SDK
-RUN mkdir -p /tmp /var/log /var/log/dataflow /var/opt/google \
-             /opt/apache/beam /dataflow/template \
-             /home/appuser/.config /home/appuser/.local && \
-    chown -R 10001:10001 \
-        /tmp \
-        /var/log \
-        /var/log/dataflow \
-        /var/opt/google \
-        /opt/apache/beam \
-        /opt/google/dataflow \
-        /dataflow/template \
-        /home/appuser \
-        /usr/local/lib/python3.11/site-packages \
-        /usr/local/bin && \
-    chmod -R 1777 /tmp
-
+ 
 ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/oden_pubsub_to_gcs.py
-ENV HOME=/home/appuser
-
+ 
 HEALTHCHECK --interval=30s \
             --timeout=10s \
             --start-period=15s \
             --retries=3 \
     CMD test -x /opt/google/dataflow/python_template_launcher || exit 1
-
-# CIS Docker v1.5.0 - 4.1: Run as non-root using numeric UID:GID
-USER 10001:10001
-
+ 
 WORKDIR /template
-
+ 
 ENTRYPOINT ["/opt/google/dataflow/python_template_launcher"]
