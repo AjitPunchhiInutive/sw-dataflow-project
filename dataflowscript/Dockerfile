@@ -11,6 +11,8 @@ RUN apt-get update && \
         build-essential \
         libffi-dev \
         libc6-dev \
+        libssl-dev \
+        pkg-config \
         cargo \
         git && \
     rm -rf /var/lib/apt/lists/*
