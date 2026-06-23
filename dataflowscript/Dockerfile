@@ -71,7 +71,7 @@ RUN groupadd --system --gid 10001 appgroup \
 COPY --from=launcher \
     /opt/google/dataflow/python_template_launcher \
     /opt/google/dataflow/python_template_launcher
-RUN chmod +x /opt/google/dataflow/python_template_launcher
+RUN chmod 755 /opt/google/dataflow/python_template_launcher
 
 # Copy compiled Python packages from the builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages \
@@ -89,7 +89,8 @@ RUN chmod 550 /template && \
 
 # Grant non-root user access to directories required by Dataflow SDK
 RUN mkdir -p /tmp /var/log /var/log/dataflow /var/opt/google \
-             /opt/apache/beam /dataflow/template && \
+             /opt/apache/beam /dataflow/template \
+             /home/appuser/.config /home/appuser/.local && \
     chown -R 10001:10001 \
         /tmp \
         /var/log \
@@ -98,10 +99,13 @@ RUN mkdir -p /tmp /var/log /var/log/dataflow /var/opt/google \
         /opt/apache/beam \
         /opt/google/dataflow \
         /dataflow/template \
-        /usr/local/lib/python3.11/site-packages && \
+        /home/appuser \
+        /usr/local/lib/python3.11/site-packages \
+        /usr/local/bin && \
     chmod -R 1777 /tmp
 
 ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/oden_pubsub_to_gcs.py
+ENV HOME=/home/appuser
 
 HEALTHCHECK --interval=30s \
             --timeout=10s \
