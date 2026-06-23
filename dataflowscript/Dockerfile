@@ -23,7 +23,7 @@ COPY requirements.txt /tmp/requirements.txt
 # CVE-2026-23949 : setuptools < 82.0.1 → upgrade to setuptools 82.0.1
 # ───────────────────────────────────────────────────────────────────────
 RUN pip install --no-cache-dir \
-        "pip==26.1.1" \
+        "pip==26.1.2" \
         "setuptools==82.0.1" \
         "wheel==0.46.3" && \
     pip install --no-cache-dir -r /tmp/requirements.txt
@@ -55,7 +55,7 @@ RUN apt-get update && \
 
 # ── Upgrade pip/setuptools/wheel in the runtime layer too ─────────────
 RUN pip install --no-cache-dir \
-        "pip==26.1.1" \
+        "pip==26.1.2" \
         "setuptools==82.0.1" \
         "wheel==0.46.3"
 
