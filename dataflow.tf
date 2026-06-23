@@ -90,6 +90,7 @@ module "pubsub" {
   message_retention_duration = "604800s"
   subscriptions = {
     "proficy-historian-topic" = {
+      project_id                  = var.log_project_id
       ack_deadline_seconds         = 600
       message_retention_duration   = "604800s" # 7 days
       retain_acked_messages        = false
