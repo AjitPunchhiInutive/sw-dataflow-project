@@ -23,35 +23,49 @@ COPY requirements.txt /tmp/requirements.txt
 # CVE-2026-23949 : setuptools < 82.0.1 → upgrade to setuptools 82.0.1
 # ───────────────────────────────────────────────────────────────────────
 RUN pip install --no-cache-dir \
-        "pip==26.1.1" \
+        "pip==26.1.2" \
         "setuptools==82.0.1" \
         "wheel==0.46.3" && \
     pip install --no-cache-dir -r /tmp/requirements.txt
 
-# ── Stage 3: clean runtime — Alpine (no Perl = no CVE-2026-12087) ─────
-# python:3.11-alpine is based on Alpine Linux which does NOT ship Perl
-# by default, eliminating CVE-2026-12087 (Perl Socket < 2.041) entirely
-FROM python:3.11-alpine
+# ── Stage 3: clean runtime (glibc — required by Dataflow launcher) ────
+FROM python:3.11.15-slim
 
-RUN apk update && \
-    apk upgrade --no-cache && \
-    apk add --no-cache \
-        openjdk11-jre-headless && \
-    rm -rf /var/cache/apk/*
+RUN apt-get update && \
+    apt-get upgrade -y --no-install-recommends && \
+    apt-get install -y --no-install-recommends \
+        default-jre-headless && \
+    # ── CVE-2026-12087: Perl Socket < 2.041 — out-of-bounds heap read ──
+    # No fixed Debian package exists for any Debian version.
+    # Perl is not required at runtime by this Python/JRE container.
+    # Remove perl and all associated packages to eliminate the CVE surface.
+    dpkg --purge --force-depends \
+        perl \
+        perl-base \
+        perl-modules-5.36 \
+        libperl5.36 2>/dev/null || true && \
+    apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf \
+        /var/lib/apt/lists/* \
+        /usr/bin/perl* \
+        /usr/lib/perl* \
+        /usr/share/perl* \
+        /usr/share/perl5
 
 # ── Upgrade pip/setuptools/wheel in the runtime layer too ─────────────
 RUN pip install --no-cache-dir \
-        "pip==26.1.1" \
+        "pip==26.1.2" \
         "setuptools==82.0.1" \
         "wheel==0.46.3"
 
 # Create non-root user and group
-RUN addgroup -g 1001 appgroup && \
-    adduser -u 1001 \
-            -G appgroup \
-            -H \
-            -s /sbin/nologin \
-            -D appuser
+RUN groupadd --gid 1001 appgroup && \
+    useradd --uid 1001 \
+            --gid appgroup \
+            --no-create-home \
+            --shell /sbin/nologin \
+            appuser
 
 # Copy the launcher binary
 COPY --from=launcher \
@@ -81,8 +95,8 @@ HEALTHCHECK --interval=30s \
             --retries=3 \
     CMD test -x /opt/google/dataflow/python_template_launcher || exit 1
 
-WORKDIR /template
+USER appuser:appgroup
 
-USER appuser
+WORKDIR /template
 
 ENTRYPOINT ["/opt/google/dataflow/python_template_launcher"]
