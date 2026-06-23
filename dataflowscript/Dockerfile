@@ -64,7 +64,7 @@ RUN groupadd --system appgroup \
     && useradd --system --no-create-home --gid appgroup appuser \
     && mkdir -p /template \
     && chown -R appuser:appgroup /template
-    
+
 # Copy the launcher binary
 COPY --from=launcher \
     /opt/google/dataflow/python_template_launcher \
@@ -84,6 +84,20 @@ COPY --chown=appuser:appgroup oden_pubsub_to_gcs.py /template/oden_pubsub_to_gcs
 RUN chmod 550 /template && \
     chmod 440 /template/requirements.txt \
               /template/oden_pubsub_to_gcs.py
+
+# Grant non-root user access to directories required by Dataflow SDK
+RUN mkdir -p /tmp /var/log /var/log/dataflow /var/opt/google \
+             /opt/apache/beam /dataflow/template && \
+    chown -R appuser:appgroup \
+        /tmp \
+        /var/log \
+        /var/log/dataflow \
+        /var/opt/google \
+        /opt/apache/beam \
+        /opt/google/dataflow \
+        /dataflow/template \
+        /usr/local/lib/python3.11/site-packages && \
+    chmod -R 777 /tmp
 
 ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/oden_pubsub_to_gcs.py
 
