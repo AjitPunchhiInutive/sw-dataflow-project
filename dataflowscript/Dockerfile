@@ -51,6 +51,8 @@ RUN apt-get update && \
         /usr/bin/perl* \
         /usr/lib/perl* \
         /usr/share/perl* \
+        /usr/lib/x86_64-linux-gnu/perl5/ \
+        /usr/local/lib/x86_64-linux-gnu/perl5/ \
         /usr/share/perl5
  
 # ── Upgrade pip/setuptools/wheel in the runtime layer too ─────────────
