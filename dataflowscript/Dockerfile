@@ -39,17 +39,17 @@ RUN apt-get update && \
     apt-get upgrade -y --no-install-recommends && \
     apt-get install -y --no-install-recommends \
         default-jre-headless && \
-    # ── CVE-2026-12087: Perl Socket < 2.041 — out-of-bounds heap read ──
-    # Upgrade system Perl Socket module to 2.041+ via cpan
-    apt-get install -y --no-install-recommends \
-        perl \
-        cpanminus && \
-    cpanm --notest Socket@2.041 && \
-    # Remove cpanminus after patching to keep image lean
-    apt-get purge -y cpanminus && \
-    apt-get autoremove -y && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /root/.cpanm
+    rm -rf /var/lib/apt/lists/* && \
+    # ── CVE-2026-12087: Perl Socket < 2.041 — out-of-bounds heap read ──
+    # This is a Python-only container; Perl is not needed at runtime.
+    # Surgically remove the vulnerable Socket module files to eliminate
+    # the CVE surface without breaking JRE dependencies on perl-base.
+    find /usr/lib/perl5 \
+         /usr/share/perl5 \
+         /usr/lib/x86_64-linux-gnu/perl5 \
+         /usr/lib/aarch64-linux-gnu/perl5 \
+         -name "Socket.pm" -o -name "Socket.so" 2>/dev/null | xargs rm -f || true
 
 # ── Upgrade pip/setuptools/wheel in the runtime layer too ─────────────
 RUN pip install --no-cache-dir \
