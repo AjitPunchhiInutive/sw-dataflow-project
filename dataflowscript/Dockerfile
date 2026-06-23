@@ -18,46 +18,53 @@ RUN apt-get update && \
 COPY requirements.txt /tmp/requirements.txt
 
 # ── CVE fixes ──────────────────────────────────────────────────────────
-# CVE-2026-3219  : pip ≤ 26.0.x  → upgrade to pip 26.1.1
-# CVE-2026-24049 : wheel ≤ 0.46.1 → upgrade to wheel 0.46.3
-# CVE-2026-23949 : setuptools < 82.0.1 → upgrade to setuptools 82.0.1
+# CVE-2026-3219  : pip ≤ 26.0.x — concatenated tar+ZIP treated as ZIP
+#                  → upgrade to pip 26.1.1
+# CVE-2026-24049 : wheel ≤ 0.46.1 — path traversal in wheel unpack
+#                  → upgrade to wheel 0.46.3
+# CVE-2026-23949 : jaraco.context ≥ 5.2.0,< 6.1.0 (vendored in setuptools)
+#                  → upgrade to setuptools 82.0.1
+# GHSA-537c-gmf6-5ccf : cryptography < 48.0.1 bundles vulnerable OpenSSL
+#                  → upgrade to cryptography 48.0.1
+# CVE-2026-25087 : Apache Arrow C++ 15.0.0–23.0.0 Use After Free
+#                  → upgrade pyarrow to 23.0.1 or later
 # ───────────────────────────────────────────────────────────────────────
 RUN pip install --no-cache-dir \
         "pip==26.1.1" \
         "setuptools==82.0.1" \
-        "wheel==0.46.3" && \
+        "wheel==0.46.3" \
+        "cryptography>=48.0.1" \
+        "pyarrow>=23.0.1" && \
     pip install --no-cache-dir -r /tmp/requirements.txt
 
-# ── Stage 3: clean runtime (glibc — required by Dataflow launcher) ────
+# ── Stage 3: clean runtime ────────────────────────────────────────────
 FROM python:3.11.15-slim
 
 RUN apt-get update && \
     apt-get upgrade -y --no-install-recommends && \
     apt-get install -y --no-install-recommends \
         default-jre-headless && \
-    # ── CVE-2026-12087: Perl Socket < 2.041 — out-of-bounds heap read ──
-    # No fixed Debian package exists for any Debian version.
-    # Perl is not required at runtime by this Python/JRE container.
-    # Remove perl and all associated packages to eliminate the CVE surface.
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    # ── CVE-2026-12087: Perl Socket < 2.041 ──────────────────────────
+    # No fixed Debian package — remove vulnerable Perl files entirely
     dpkg --purge --force-depends \
         perl \
         perl-base \
         perl-modules-5.36 \
         libperl5.36 2>/dev/null || true && \
-    apt-get autoremove -y && \
-    apt-get clean && \
     rm -rf \
-        /var/lib/apt/lists/* \
         /usr/bin/perl* \
         /usr/lib/perl* \
-        /usr/share/perl* \
-        /usr/share/perl5
+        /usr/share/perl*
 
-# ── Upgrade pip/setuptools/wheel in the runtime layer too ─────────────
+# ── Upgrade pip/setuptools/wheel/cryptography/pyarrow in runtime ──────
 RUN pip install --no-cache-dir \
         "pip==26.1.1" \
         "setuptools==82.0.1" \
-        "wheel==0.46.3"
+        "wheel==0.46.3" \
+        "cryptography>=48.0.1" \
+        "pyarrow>=23.0.1"
 
 # Create non-root user and group
 RUN groupadd --gid 1001 appgroup && \
