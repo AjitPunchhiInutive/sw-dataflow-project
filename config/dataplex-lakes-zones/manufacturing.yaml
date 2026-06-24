@@ -1,0 +1,35 @@
+# config/dataplex/manufacturing.yaml
+
+name:         manufacturing
+display_name: "Manufacturing Data Lake"
+description:  "Data lake for manufacturing domain including OT telemetry, plant reference, and operations data"
+project_id:   sw-dev-prj-sandbox
+region:       us-east4
+
+zones:
+  rds:
+    display_name:  "Raw Data Zone"
+    description:   "The Raw Data Zone"
+    type:          RAW
+    discovery:     true
+    cron_schedule: "0 4 * * *"    # Daily 12:00am EDT (UTC-4) = 04:00 UTC
+
+    assets:
+
+      plant-reference:
+        display_name:           "Plant Reference"
+        description:            "Reference data for plant configuration, metadata, and master records"
+        resource_project:       sw-dev-prj-sandbox
+        resource_name:          raw_dev_eds
+        cron_schedule:          null    # inherited from rds zone
+        discovery_spec_enabled: true
+        resource_spec_type:     BIGQUERY_DATASET
+
+      plant-operations:
+        display_name:           "Plant Operations"
+        description:            "Plant operations data ingested via Pub/Sub, GCS, and Dataflow pipelines"
+        resource_project:       sw-dev-prj-sandbox
+        resource_name:          pubsub_gcs_dataflow
+        cron_schedule:          null    # inherited from rds zone
+        discovery_spec_enabled: true
+        resource_spec_type:     BIGQUERY_DATASET

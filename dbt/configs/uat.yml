@@ -1,0 +1,27 @@
+# =============================================================================
+# configs/uat.yml — UAT Environment Configuration
+# =============================================================================
+# All environment-specific values for the UAT environment live here.
+# Scripts (build_and_push.sh, deploy_cloudrun.sh) read this file when
+# called with ENV=uat.
+#
+# DATASET STRATEGY:
+#   dataset_prefix: raw_uat
+#   dbt output datasets: raw_uat_eds (views), raw_uat_ods (tables)
+#   Source data:         raw.raw_orders, raw.raw_customers (shared)
+# =============================================================================
+
+project_id: sw-dev-prj-sandbox
+region: us-east4
+bq_location: us-east4
+
+environment: uat
+dbt_target: uat
+dataset_prefix: raw_uat
+
+job_name: dbt-run-job
+ar_repo: dbt-docker-image
+image_name: dbt-docker-image
+
+service_account: dataflow-runner@sw-dev-prj-sandbox.iam.gserviceaccount.com
+composer_env: dbt-poc-composer

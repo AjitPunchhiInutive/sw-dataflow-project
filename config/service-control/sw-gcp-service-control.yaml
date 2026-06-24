@@ -1,0 +1,109 @@
+deploy: false
+org_id: "203589767236"
+folder_ids: []
+projects:
+  - project_id:     "sw-dev-prj-sandbox"
+    project_number: "1055383360133"
+    region:         "us-central1"
+
+  - project_id:     "sw-dev-test-prj-itp-secrets"
+    project_number: "996982084574"
+    region:         "us-central1"
+
+  - project_id:     "sw-dev-prj-itp-secrets"
+    project_number: "481628496562"
+    region:         "us-central1"
+
+# Primary project — hosts BQ audit dataset + log sink
+primary_project_id:     "sw-dev-prj-itp-secrets"
+primary_project_number: "481628496562"
+region:                 "us-central1"
+create_access_policy: false
+access_policy_title:  "accesslevel"
+existing_policy_id:   "377522438681"   # ← replace with your org-level policy ID
+
+
+perimeter_name:        "sw_eudp_vpcsc_perimeter"
+perimeter_title:       "sw_eudp_vpcsc_perimeter"
+perimeter_description: "sw_eudp_vpcsc_perimeter"
+dry_run: true
+restricted_services:
+  # Core Compute & Infrastructure
+  - "compute.googleapis.com"
+  - "container.googleapis.com"
+  - "containerregistry.googleapis.com"
+  - "artifactregistry.googleapis.com"
+  - "cloudkms.googleapis.com"
+  - "iam.googleapis.com"
+  - "iamcredentials.googleapis.com"
+  - "cloudresourcemanager.googleapis.com"
+  - "config.googleapis.com"
+  - "workloadmanager.googleapis.com"
+  # Storage
+  - "storage.googleapis.com"
+  - "file.googleapis.com"
+  - "netapp.googleapis.com"
+  # Data & Analytics
+  - "bigquery.googleapis.com"
+  - "bigqueryconnection.googleapis.com"
+  - "biglake.googleapis.com"
+  - "dataflow.googleapis.com"
+  - "dataproc.googleapis.com"
+  - "pubsub.googleapis.com"
+  - "spanner.googleapis.com"
+  - "bigtable.googleapis.com"
+  - "firestore.googleapis.com"
+  - "sqladmin.googleapis.com"
+  - "alloydb.googleapis.com"
+  - "redis.googleapis.com"
+  - "datacatalog.googleapis.com"
+  - "dataplex.googleapis.com"
+  # Secrets & Security
+  - "secretmanager.googleapis.com"
+  - "accessapproval.googleapis.com"
+  - "cloudtrace.googleapis.com"
+  - "monitoring.googleapis.com"
+  - "logging.googleapis.com"
+  # Networking
+  - "dns.googleapis.com"
+  - "networkconnectivity.googleapis.com"
+  - "networkmanagement.googleapis.com"
+  - "servicenetworking.googleapis.com"
+  - "vpcaccess.googleapis.com"
+  # Serverless & ML
+  - "cloudfunctions.googleapis.com"
+  - "run.googleapis.com"
+  - "aiplatform.googleapis.com"
+  - "notebooks.googleapis.com"
+  - "ml.googleapis.com"
+  # DevOps & CI/CD
+  - "cloudbuild.googleapis.com"
+  - "cloudsearch.googleapis.com"
+
+# ------- Access Levels ----------------------------------------
+access_levels:
+  - name:        "sw_accesslevel"
+    description: "Platform admins allowed through perimeter"
+    members:
+      - "serviceAccount:sw-dev-prj-sandbox@appspot.gserviceaccount.com"
+      - "user:ajit.punchhi@intuitive.ai"
+
+  - name:        "dataflow_sa"
+    description: "Dataflow managed service account"
+    members:
+      - "serviceAccount:service-1055383360133@dataflow-service-producer-prod.iam.gserviceaccount.com"
+# ------- Cloud Storage Log Bucket ----------------------------
+storage:
+  bucket_name:        "sw-dev-prj-sandbox-vpcsc-logs"
+  location:           "US"
+  storage_class:      "STANDARD"
+  versioning_enabled: false
+  force_destroy:      false
+  log_retention_days: 90   # Auto-delete logs after 90 days
+
+# ------- Labels -----------------------------------------------
+labels:
+  environment: "sandbox"
+  team:        "platform"
+  managed_by:  "terraform"
+  cost_center: "cc-1234"

@@ -1,0 +1,189 @@
+# name: Terraform Action Workflow Template
+
+# on:
+#   pull_request:
+#     branches:
+#       - main
+#     paths:
+#       - '**'
+#   workflow_dispatch:
+# env:
+#   TF_VERSION: "1.6.3"
+#   WORKING_DIR: "."
+#   TFSEC_VERSION: "1.28.6"
+
+# jobs:
+#   terraform-plan:
+#     name: Terraform Plan
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: read
+#       id-token: write
+#       security-events: write
+#       actions: read
+#     defaults:
+#       run:
+#         working-directory: ${{ env.WORKING_DIR }}
+
+#     steps:
+#       - name: Checkout repository
+#         uses: actions/checkout@v4.2.2
+
+#       - name: Setup SSH Key for Private Module Access
+#         uses: webfactory/ssh-agent@v0.9.1
+#         with:
+#           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+#       - name: Setup Terraform
+#         uses: hashicorp/setup-terraform@v4
+#         with:
+#           terraform_version: ${{ env.TF_VERSION }}
+
+#       # - name: Setup GCloud CLI
+#       #   uses: google-github-actions/setup-gcloud@v1
+#       #   with:
+#       #     version: 'latest'
+
+#       - name: Authenticate to Google Cloud
+#         uses: google-github-actions/auth@v3
+#         with:
+#           project_id:  ${{ secrets.GCP_PROJECT_ID }}
+#           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+#           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+#       - name: Terraform Init
+#         run: terraform init
+
+#       - name: Terraform Validate
+#         run: terraform validate
+
+#       - name: Terraform Plan
+#         run: terraform plan -var-file=sw-dataflow-project.tfvars -out=tfplan
+
+#       - name: Upload Plan Artifact
+#         uses: actions/upload-artifact@v4.6.2
+#         with:
+#           name: tfplan
+#           path: ${{ env.WORKING_DIR }}/tfplan
+#           retention-days:    1
+
+#   approval:
+#     needs: terraform-plan
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: read
+#     environment: 
+#       name: test
+#       url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+#     steps:
+#       - name: Approval Required
+#         run: |
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "  Approval Required"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo " Approval granted - proceeding to apply"
+
+#   terraform-plan-after-approval:
+#     name: Terraform Plan (Post Approval)
+#     needs: approval
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: read
+#       id-token: write
+#       actions:  read
+#     defaults:
+#       run:
+#         working-directory: ${{ env.WORKING_DIR }}
+
+#     steps:
+#       - name: Checkout repository
+#         uses: actions/checkout@v4.2.2
+
+#       - name: Setup SSH Key for Private Module Access
+#         uses: webfactory/ssh-agent@v0.9.1
+#         with:
+#           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+#       - name: Setup Terraform
+#         uses: hashicorp/setup-terraform@v4
+#         with:
+#           terraform_version: ${{ env.TF_VERSION }}
+
+#       - name: Authenticate to Google Cloud
+#         uses: google-github-actions/auth@v3
+#         with:
+#           project_id:                 ${{ secrets.GCP_PROJECT_ID }}
+#           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+#           service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+#       - name: Terraform Init
+#         run: terraform init
+
+#       - name: Terraform Validate
+#         run: terraform validate
+
+#       # Fresh plan after approval — this is the plan that will be applied
+#       - name: Terraform Plan
+#         run: terraform plan -var-file=sw-dataflow-project.tfvars -out=tfplan
+
+#       - name: Upload Plan Artifact
+#         uses: actions/upload-artifact@v4.6.2
+#         with:
+#           name:           tfplan-after-approval
+#           path:           ${{ env.WORKING_DIR }}/tfplan
+#           retention-days: 1
+
+# # ─────────────────────────────────────────────────────────────────────────────
+# # APPLY — Runs after the second plan succeeds
+# # Uses the fresh plan generated after approval
+# # ─────────────────────────────────────────────────────────────────────────────
+#   terraform-apply:
+#     name: Terraform Apply
+#     needs: terraform-plan-after-approval
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: read
+#       id-token: write
+#       actions:  read
+#     defaults:
+#       run:
+#         working-directory: ${{ env.WORKING_DIR }}
+
+#     steps:
+#       - name: Checkout repository
+#         uses: actions/checkout@v4.2.2
+
+#       - name: Setup SSH Key for Private Module Access
+#         uses: webfactory/ssh-agent@v0.9.1
+#         with:
+#           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+#       - name: Setup Terraform
+#         uses: hashicorp/setup-terraform@v4
+#         with:
+#           terraform_version: ${{ env.TF_VERSION }}
+
+#       - name: Authenticate to Google Cloud
+#         uses: google-github-actions/auth@v3
+#         with:
+#           project_id:                 ${{ secrets.GCP_PROJECT_ID }}
+#           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+#           service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+#       - name: Terraform Init
+#         run: terraform init
+
+#       # Download the fresh plan generated after approval
+#       - name: Download Plan Artifact
+#         uses: actions/download-artifact@v4
+#         with:
+#           name: tfplan-after-approval
+#           path: ${{ env.WORKING_DIR }}
+
+#       - name: Terraform Apply
+#         run: terraform apply tfplan
+
+#       - name: Apply Complete
+#         run: |
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "Terraform Apply completed successfully"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

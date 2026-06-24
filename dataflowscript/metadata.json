@@ -1,0 +1,42 @@
+{
+  "name": "oden-gcs-parquet",
+  "description": "Reads from Pub/Sub and writes Parquet files to GCS and BigQuery",
+  "parameters": [
+    {
+      "name": "subscription",
+      "label": "Pub/Sub Subscription",
+      "helpText": "Full subscription path: projects/PROJECT/subscriptions/NAME",
+      "isOptional": false
+    },
+    {
+      "name": "bq_table_ok",
+      "label": "BigQuery OK Table",
+      "helpText": "PROJECT:DATASET.TABLE for valid records",
+      "isOptional": false
+    },
+    {
+      "name": "bq_table_err",
+      "label": "BigQuery Error Table",
+      "helpText": "PROJECT:DATASET.TABLE for failed/error records",
+      "isOptional": false
+    },
+    {
+      "name": "gcs_output_path",
+      "label": "GCS Output Path",
+      "helpText": "gs://BUCKET/path/ for output files",
+      "isOptional": false
+    },
+    {
+      "name": "temp_location",
+      "label": "Temp Location",
+      "helpText": "gs://BUCKET/tmp/",
+      "isOptional": true
+    },
+    {
+      "name": "staging_location",
+      "label": "Staging Location",
+      "helpText": "gs://BUCKET/staging/",
+      "isOptional": true
+    }
+  ]
+}

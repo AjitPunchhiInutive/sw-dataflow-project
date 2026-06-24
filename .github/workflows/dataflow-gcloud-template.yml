@@ -1,0 +1,368 @@
+name: Dataflow Template Build
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'dataflowscript/**'
+  workflow_dispatch:
+
+env:
+  TF_DIR:      ./dataflowscript
+  CONFIG_FILE: ./dataflowscript/dev-config.json
+
+jobs:
+ 
+  # ── Job 1: Plan ───────────────────────────────────────────────────────────
+  plan-dataflow-template:
+    name: "Step 1 | Plan Dataflow Deployment"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+ 
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+ 
+      - name: Load Config
+        run: |
+          CONFIG=$(cat ${{ env.CONFIG_FILE }})
+          echo "DATAFLOW_PROJECT=$(echo $CONFIG      | jq -r '.dataflow_project')"           >> $GITHUB_ENV
+          echo "REGION=$(echo $CONFIG                | jq -r '.region')"               >> $GITHUB_ENV
+          echo "JOB_NAME=$(echo $CONFIG              | jq -r '.job_name')"             >> $GITHUB_ENV
+          echo "JOB_FILTER=$(echo $CONFIG            | jq -r '.job_filter')"           >> $GITHUB_ENV
+          echo "AR_REGISTRY=$(echo $CONFIG           | jq -r '.ar_registry')"          >> $GITHUB_ENV
+          echo "AR_REPOSITORY=$(echo $CONFIG         | jq -r '.ar_repository')"        >> $GITHUB_ENV
+          echo "AR_IMAGE_NAME=$(echo $CONFIG         | jq -r '.ar_image_name')"        >> $GITHUB_ENV
+          echo "DOCKERFILE_PATH=$(echo $CONFIG       | jq -r '.dockerfile_path')"      >> $GITHUB_ENV
+          echo "DOCKERFILE_CONTEXT=$(echo $CONFIG    | jq -r '.dockerfile_context')"   >> $GITHUB_ENV
+          echo "METADATA_FILE=$(echo $CONFIG         | jq -r '.metadata_file')"        >> $GITHUB_ENV
+          echo "GCS_BUCKET=$(echo $CONFIG            | jq -r '.gcs_bucket')"           >> $GITHUB_ENV
+          echo "GCS_TEMPLATE_PREFIX=$(echo $CONFIG   | jq -r '.gcs_template_prefix')"  >> $GITHUB_ENV
+          echo "GCS_OUTPUT_PATH=$(echo $CONFIG       | jq -r '.gcs_output_path')"      >> $GITHUB_ENV
+          echo "GCS_TEMP_LOCATION=$(echo $CONFIG     | jq -r '.gcs_temp_location')"    >> $GITHUB_ENV
+          echo "GCS_STAGING_LOCATION=$(echo $CONFIG  | jq -r '.gcs_staging_location')" >> $GITHUB_ENV
+          echo "NETWORK=$(echo $CONFIG               | jq -r '.network')"              >> $GITHUB_ENV
+          echo "SUBNETWORK=$(echo $CONFIG            | jq -r '.subnetwork')"           >> $GITHUB_ENV
+          echo "SERVICE_ACCOUNT=$(echo $CONFIG       | jq -r '.service_account')"      >> $GITHUB_ENV
+          echo "SUBSCRIPTION=$(echo $CONFIG          | jq -r '.subscription')"         >> $GITHUB_ENV
+          echo "BQ_TABLE_OK=$(echo $CONFIG           | jq -r '.bq_table_ok')"          >> $GITHUB_ENV
+          echo "BQ_TABLE_ERR=$(echo $CONFIG          | jq -r '.bq_table_err')"         >> $GITHUB_ENV
+ 
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          project_id:                 ${{ secrets.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+ 
+      - name: Setup GCloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          version: 'latest'
+ 
+      - name: Override Active GCloud Project
+        run: |
+          gcloud config set project ${{ env.DATAFLOW_PROJECT }}
+          gcloud config set billing/quota_project ${{ env.DATAFLOW_PROJECT }}
+          echo "CLOUDSDK_CORE_PROJECT=${{ env.DATAFLOW_PROJECT }}" >> $GITHUB_ENV
+          echo "GCLOUD_PROJECT=${{ env.DATAFLOW_PROJECT }}"        >> $GITHUB_ENV
+          echo "GOOGLE_CLOUD_PROJECT=${{ env.DATAFLOW_PROJECT }}"  >> $GITHUB_ENV
+          echo "Active project: $(gcloud config get-value project)"
+ 
+      - name: Show Deployment Plan
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  Dataflow Deployment Plan"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  Job Name          : ${{ env.JOB_NAME }}"
+          echo "  Template          : gs://${{ env.GCS_BUCKET }}/${{ env.GCS_TEMPLATE_PREFIX }}-${{ github.run_number }}.json"
+          echo "  Region            : ${{ env.REGION }}"
+          echo "  Project           : ${{ env.DATAFLOW_PROJECT }}"
+          echo "  Service Acct      : ${{ env.SERVICE_ACCOUNT }}"
+          echo "  Network           : ${{ env.NETWORK }}"
+          echo "  Subnetwork        : ${{ env.SUBNETWORK }}"
+          echo "  Public IPs        : Disabled"
+          echo "  Streaming Engine  : Enabled"
+          echo "  Input Subscription: ${{ env.SUBSCRIPTION }}"
+          echo "  BQ OK Table       : ${{ env.BQ_TABLE_OK }}"
+          echo "  BQ Error Table    : ${{ env.BQ_TABLE_ERR }}"
+          echo "  GCS Output Path   : ${{ env.GCS_OUTPUT_PATH }}"
+          echo "  Temp Location     : ${{ env.GCS_TEMP_LOCATION }}"
+          echo "  Staging Location  : ${{ env.GCS_STAGING_LOCATION }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+ 
+      - name: Override Active GCloud Project
+        run: |
+          gcloud config set project ${{ env.DATAFLOW_PROJECT }}
+          gcloud config set billing/quota_project ${{ env.DATAFLOW_PROJECT }}
+          echo "CLOUDSDK_CORE_PROJECT=${{ env.DATAFLOW_PROJECT }}" >> $GITHUB_ENV
+          echo "GCLOUD_PROJECT=${{ env.DATAFLOW_PROJECT }}"        >> $GITHUB_ENV
+          echo "GOOGLE_CLOUD_PROJECT=${{ env.DATAFLOW_PROJECT }}"  >> $GITHUB_ENV
+          echo "Active project: $(gcloud config get-value project)"
+ 
+      - name: Preview Active Dataflow Jobs
+        run: |
+          echo "Currently Running Dataflow Jobs in: ${{ env.DATAFLOW_PROJECT }}"
+          gcloud dataflow jobs list \
+            --region="${{ env.REGION }}" \
+            --project="${{ env.DATAFLOW_PROJECT }}" \
+            --billing-project="${{ env.DATAFLOW_PROJECT }}" \
+            --filter="state=JOB_STATE_RUNNING" \
+            --format="table(id, name, currentState, startTime)"
+ 
+  # ── Job 2: Approval ───────────────────────────────────────────────────────
+  # approval:
+  #   name: "Step 2 | Approval Gate"
+  #   needs: plan-dataflow-template
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     contents: read
+  #   environment:
+  #     name: terraform
+  #     url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+ 
+  #   steps:
+  #     - name: Approval Required
+  #       run: |
+  #         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  #         echo "  Review the plan above, then approve"
+  #         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  #         echo "  Approval granted - proceeding to build"
+ 
+  # ── Job 3: Build ──────────────────────────────────────────────────────────
+  build-dataflow-template:
+    name: "Step 3 | Build Dataflow Flex Template"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+ 
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+ 
+      - name: Load Config
+        run: |
+          CONFIG=$(cat ${{ env.CONFIG_FILE }})
+          echo "DATAFLOW_PROJECT=$(echo $CONFIG          | jq -r '.dataflow_project')"          >> $GITHUB_ENV
+          echo "REGION=$(echo $CONFIG              | jq -r '.region')"              >> $GITHUB_ENV
+          echo "AR_REGISTRY=$(echo $CONFIG         | jq -r '.ar_registry')"         >> $GITHUB_ENV
+          echo "AR_REPOSITORY=$(echo $CONFIG       | jq -r '.ar_repository')"       >> $GITHUB_ENV
+          echo "AR_IMAGE_NAME=$(echo $CONFIG       | jq -r '.ar_image_name')"       >> $GITHUB_ENV
+          echo "DOCKERFILE_PATH=$(echo $CONFIG     | jq -r '.dockerfile_path')"     >> $GITHUB_ENV
+          echo "DOCKERFILE_CONTEXT=$(echo $CONFIG  | jq -r '.dockerfile_context')"  >> $GITHUB_ENV
+          echo "METADATA_FILE=$(echo $CONFIG       | jq -r '.metadata_file')"       >> $GITHUB_ENV
+          echo "GCS_BUCKET=$(echo $CONFIG          | jq -r '.gcs_bucket')"          >> $GITHUB_ENV
+          echo "GCS_TEMPLATE_PREFIX=$(echo $CONFIG | jq -r '.gcs_template_prefix')" >> $GITHUB_ENV
+ 
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          project_id:                 ${{ secrets.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+ 
+      - name: Setup GCloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          version: 'latest'
+     
+      - name: Override Active GCloud Project
+        run: |
+          gcloud config set project ${{ env.DATAFLOW_PROJECT }}
+          gcloud config set billing/quota_project ${{ env.DATAFLOW_PROJECT }}
+          echo "CLOUDSDK_CORE_PROJECT=${{ env.DATAFLOW_PROJECT }}" >> $GITHUB_ENV
+          echo "GCLOUD_PROJECT=${{ env.DATAFLOW_PROJECT }}"        >> $GITHUB_ENV
+          echo "GOOGLE_CLOUD_PROJECT=${{ env.DATAFLOW_PROJECT }}"  >> $GITHUB_ENV
+          echo "Active project: $(gcloud config get-value project)"
+ 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+ 
+      - name: Verify Docker Installation
+        run: |
+          docker --version
+          docker buildx version
+ 
+      - name: Build and Push Docker Image
+        run: |
+          IMAGE="${{ env.AR_REGISTRY }}/${{ env.AR_REPOSITORY }}/${{ env.AR_IMAGE_NAME }}:${{ github.run_number }}"
+ 
+          echo "Configuring Docker for Artifact Registry..."
+          gcloud auth configure-docker ${{ env.AR_REGISTRY }} --quiet
+ 
+          echo "Building Docker image: $IMAGE"
+          docker build \
+            --no-cache \
+            --tag "$IMAGE" \
+            --file "${{ env.DOCKERFILE_PATH }}" \
+            ${{ env.DOCKERFILE_CONTEXT }}
+ 
+          echo "Pushing image..."
+          docker push "$IMAGE"
+          echo "✅ Image pushed: $IMAGE"
+   
+      - name: Override Active GCloud Project
+        run: |
+          gcloud config set project ${{ env.DATAFLOW_PROJECT }}
+          gcloud config set billing/quota_project ${{ env.DATAFLOW_PROJECT }}
+          echo "CLOUDSDK_CORE_PROJECT=${{ env.DATAFLOW_PROJECT }}" >> $GITHUB_ENV
+          echo "GCLOUD_PROJECT=${{ env.DATAFLOW_PROJECT }}"        >> $GITHUB_ENV
+          echo "GOOGLE_CLOUD_PROJECT=${{ env.DATAFLOW_PROJECT }}"  >> $GITHUB_ENV
+          echo "Active project: $(gcloud config get-value project)"
+ 
+      - name: Build Flex Template JSON
+        run: |
+          IMAGE="${{ env.AR_REGISTRY }}/${{ env.AR_REPOSITORY }}/${{ env.AR_IMAGE_NAME }}:${{ github.run_number }}"
+          TEMPLATE="gs://${{ env.GCS_BUCKET }}/${{ env.GCS_TEMPLATE_PREFIX }}-${{ github.run_number }}.json"
+ 
+          echo "Building Flex Template → $TEMPLATE"
+          gcloud dataflow flex-template build "$TEMPLATE" \
+            --image="$IMAGE" \
+            --sdk-language=PYTHON \
+            --metadata-file="${{ env.METADATA_FILE }}" \
+            --project="${{ env.DATAFLOW_PROJECT }}"
+          echo "✅ Flex Template uploaded to GCS"
+ 
+      - name: Confirm Template Upload
+        run: |
+          TEMPLATE="gs://${{ env.GCS_BUCKET }}/${{ env.GCS_TEMPLATE_PREFIX }}-${{ github.run_number }}.json"
+          gsutil ls "$TEMPLATE"
+          echo "Template confirmed in GCS"
+ 
+  # ── Job 4: Deploy ─────────────────────────────────────────────────────────
+  deploy-dataflow-template:
+    name: "Step 4 | Deploy Dataflow Flex Template"
+    needs: build-dataflow-template
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+ 
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+ 
+      - name: Load Config
+        run: |
+          CONFIG=$(cat ${{ env.CONFIG_FILE }})
+          echo "DATAFLOW_PROJECT=$(echo $CONFIG            | jq -r '.dataflow_project')"           >> $GITHUB_ENV
+          echo "REGION=$(echo $CONFIG                | jq -r '.region')"               >> $GITHUB_ENV
+          echo "JOB_NAME=$(echo $CONFIG              | jq -r '.job_name')"             >> $GITHUB_ENV
+          echo "JOB_FILTER=$(echo $CONFIG            | jq -r '.job_filter')"           >> $GITHUB_ENV
+          echo "GCS_BUCKET=$(echo $CONFIG            | jq -r '.gcs_bucket')"           >> $GITHUB_ENV
+          echo "GCS_TEMPLATE_PREFIX=$(echo $CONFIG   | jq -r '.gcs_template_prefix')"  >> $GITHUB_ENV
+          echo "GCS_OUTPUT_PATH=$(echo $CONFIG       | jq -r '.gcs_output_path')"      >> $GITHUB_ENV
+          echo "GCS_TEMP_LOCATION=$(echo $CONFIG     | jq -r '.gcs_temp_location')"    >> $GITHUB_ENV
+          echo "GCS_STAGING_LOCATION=$(echo $CONFIG  | jq -r '.gcs_staging_location')" >> $GITHUB_ENV
+          echo "NETWORK=$(echo $CONFIG               | jq -r '.network')"              >> $GITHUB_ENV
+          echo "SUBNETWORK=$(echo $CONFIG            | jq -r '.subnetwork')"           >> $GITHUB_ENV
+          echo "SERVICE_ACCOUNT=$(echo $CONFIG       | jq -r '.service_account')"      >> $GITHUB_ENV
+          echo "SUBSCRIPTION=$(echo $CONFIG          | jq -r '.subscription')"         >> $GITHUB_ENV
+          echo "BQ_TABLE_OK=$(echo $CONFIG           | jq -r '.bq_table_ok')"          >> $GITHUB_ENV
+          echo "BQ_TABLE_ERR=$(echo $CONFIG          | jq -r '.bq_table_err')"         >> $GITHUB_ENV
+ 
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          project_id:                 ${{ secrets.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+ 
+      - name: Setup GCloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          version: 'latest'
+ 
+      - name: Override Active GCloud Project
+        run: |
+          gcloud config set project ${{ env.DATAFLOW_PROJECT }}
+          gcloud config set billing/quota_project ${{ env.DATAFLOW_PROJECT }}
+          echo "CLOUDSDK_CORE_PROJECT=${{ env.DATAFLOW_PROJECT }}" >> $GITHUB_ENV
+          echo "GCLOUD_PROJECT=${{ env.DATAFLOW_PROJECT }}"        >> $GITHUB_ENV
+          echo "GOOGLE_CLOUD_PROJECT=${{ env.DATAFLOW_PROJECT }}"  >> $GITHUB_ENV
+          echo "Active project: $(gcloud config get-value project)"
+ 
+      - name: Validate Template Exists in GCS
+        run: |
+          TEMPLATE="gs://${{ env.GCS_BUCKET }}/${{ env.GCS_TEMPLATE_PREFIX }}-${{ github.run_number }}.json"
+          echo "Validating template: $TEMPLATE"
+          gsutil stat "$TEMPLATE"
+          echo "Template found — ready for deployment"
+ 
+      - name: Drain Existing Dataflow Job
+        run: |
+          JOB_ID=$(gcloud dataflow jobs list \
+            --project="${{ env.DATAFLOW_PROJECT }}" \
+            --region="${{ env.REGION }}" \
+            --filter="name=${{ env.JOB_FILTER }} AND state=Running" \
+            --format=value\(id\) | head -n 1)
+ 
+          if [ -z "$JOB_ID" ]; then
+            echo "No running job found. Skipping drain."
+            exit 0
+          fi
+ 
+          echo "Draining job: $JOB_ID ..."
+          gcloud dataflow jobs drain "$JOB_ID" \
+            --project="${{ env.DATAFLOW_PROJECT }}" \
+            --region="${{ env.REGION }}"
+ 
+          echo "Waiting for drain to complete..."
+          while true; do
+            STATE=$(gcloud dataflow jobs describe "$JOB_ID" \
+              --project="${{ env.DATAFLOW_PROJECT }}" \
+              --region="${{ env.REGION }}" \
+              --format=value\(currentState\))
+            echo "  Current state: $STATE"
+            if [ "$STATE" = "JOB_STATE_DRAINED" ] || \
+               [ "$STATE" = "JOB_STATE_DONE" ]    || \
+               [ "$STATE" = "JOB_STATE_CANCELLED" ]; then
+              echo "Job drained successfully."
+              break
+            fi
+            sleep 30
+          done
+ 
+      - name: Deploy Dataflow Flex Template
+        run: |
+          TEMPLATE="gs://${{ env.GCS_BUCKET }}/${{ env.GCS_TEMPLATE_PREFIX }}-${{ github.run_number }}.json"
+ 
+          echo "Deploying Dataflow Flex Template... ${{ github.run_number }}"
+          gcloud dataflow flex-template run "${{ env.JOB_NAME }}" \
+            --project="${{ env.DATAFLOW_PROJECT }}" \
+            --region="${{ env.REGION }}" \
+            --template-file-gcs-location="$TEMPLATE" \
+            --service-account-email="${{ env.SERVICE_ACCOUNT }}" \
+            --network="${{ env.NETWORK }}" \
+            --subnetwork="${{ env.SUBNETWORK }}" \
+            --disable-public-ips \
+            --enable-streaming-engine \
+            --parameters=subscription="${{ env.SUBSCRIPTION }}" \
+            --parameters=bq_table_ok="${{ env.BQ_TABLE_OK }}" \
+            --parameters=bq_table_err="${{ env.BQ_TABLE_ERR }}" \
+            --parameters=gcs_output_path="${{ env.GCS_OUTPUT_PATH }}" \
+            --parameters=temp_location="${{ env.GCS_TEMP_LOCATION }}" \
+            --parameters=staging_location="${{ env.GCS_STAGING_LOCATION }}"
+ 
+      - name: Confirm Dataflow Job Launched
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo " Docker image pushed to Artifact Registry"
+          echo " Flex Template uploaded to GCS"
+          echo " Dataflow job deployed"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          gcloud dataflow jobs list \
+            --region="${{ env.REGION }}" \
+            --project="${{ env.DATAFLOW_PROJECT }}" \
+            --filter="name:${{ env.JOB_FILTER }}" \
+            --format="table(id, name, currentState, startTime)"

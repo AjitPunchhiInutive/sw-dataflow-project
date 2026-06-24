@@ -1,0 +1,7 @@
+bucket_name     = "itp-terraform-test"
+gcp_project     = "melodic-furnace-403022"
+region          = "us"
+zone            = "us-east4-a"
+organization_id = "203589767236"
+log_project_id  = "sw-dev-prj-sandbox"
+test_project_id  = "sw-dev-prj-itp-secrets"

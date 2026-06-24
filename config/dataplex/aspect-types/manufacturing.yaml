@@ -1,0 +1,43 @@
+# display_name: "Manufacturing"
+# description:  "The Manufacturing aspect documents key metadata regarding plant operations."
+
+# labels:
+#   env:           dev
+#   domain:        manufacturing
+#   location:      us-east4
+#   data-category: na
+#   managed-by:    terraform
+
+# metadata_template: |
+#   {
+#     "name": "manufacturing",
+#     "type": "record",
+#     "recordFields": [
+#       {
+#         "name": "plant-id",
+#         "type": "enum",
+#         "index": 1,
+#         "annotations": {
+#           "displayName": "Plant ID",
+#           "description": "The unique plant identifier that is producing the referenced data."
+#         },
+#         "constraints": { "required": false },
+#         "enumValues": [
+#           { "name": "plant 1", "index": 1 }
+#         ]
+#       },
+#       {
+#         "name": "plant-type",
+#         "type": "enum",
+#         "index": 2,
+#         "annotations": {
+#           "displayName": "Plant Type",
+#           "description": "The type of products that the plant produces."
+#         },
+#         "constraints": { "required": false },
+#         "enumValues": [
+#           { "name": "Wire", "index": 1 }
+#         ]
+#       }
+#     ]
+#   }

@@ -1,0 +1,27 @@
+# =============================================================================
+# configs/prod.yml — Production Environment Configuration
+# =============================================================================
+# All environment-specific values for the production environment live here.
+# Scripts (build_and_push.sh, deploy_cloudrun.sh) read this file when
+# called with ENV=prod.
+#
+# DATASET STRATEGY:
+#   dataset_prefix: raw
+#   dbt output datasets: raw_eds (views), raw_ods (tables)
+#   Source data:         raw.raw_orders, raw.raw_customers
+# =============================================================================
+
+project_id: sw-dev-prj-sandbox
+region: us-east4
+bq_location: us-east4
+
+environment: prod
+dbt_target: prod
+dataset_prefix: raw
+
+job_name: dbt-run-job
+ar_repo: dbt-docker-image
+image_name: dbt-docker-image
+
+service_account: dataflow-runner@sw-dev-prj-sandbox.iam.gserviceaccount.com
+composer_env: dbt-poc-composer

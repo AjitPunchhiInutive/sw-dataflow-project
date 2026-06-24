@@ -1,0 +1,19 @@
+project_id: "sw-dev-prj-sandbox"
+location:   "us-east4"
+
+name: "Data Sensitivity"
+description: "Defines the L1-L4 policy tags used in BigQuery to enforce column-level access control, restricting the use of sensitive data to authorized users based on IAM permissions."
+
+# ── Tag hierarchy ─────────────────────────────────────────────────────────────
+tags:
+  L1-Public:
+    description: "Information approved for public access with no restrictions."
+
+  L2-Internal:
+    description: "General business information for internal use only. Low risk if disclosed."
+
+  L3-Confidential:
+    description: "Sensitive business or personal information restricted to authorized roles. Could cause harm if disclosed."
+
+  L4-Restricted:
+    description: "Highly sensitive information, strictly controlled. Significant legal or operational harm if disclosed."

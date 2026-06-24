@@ -1,0 +1,72 @@
+# =============================================================================
+# profiles.yml — dbt Connection Profile for BigQuery
+# =============================================================================
+# KEYLESS AUTH (method: oauth):
+#   No SA key file needed. dbt uses Application Default Credentials (ADC).
+#
+#   How it works per environment:
+#   - Cloud Run (dev/uat/prod):
+#       Job runs AS dbt-bigquery-sa service account.
+#       GCP metadata server automatically provides OAuth tokens.
+#       No key, no Secret Manager mount required.
+#   - Local development:
+#       Run: gcloud auth application-default login
+#       dbt uses your user credentials via ADC.
+#       OR run: gcloud auth application-default login --impersonate-service-account=dbt-bigquery-sa@...
+#       to impersonate the SA locally (matches Cloud Run behaviour exactly).
+#
+# ENVIRONMENT VARIABLES (set by Cloud Run Job via deploy_cloudrun.sh):
+#   GCP_PROJECT_ID      → GCP project (from configs/ENV.yml → project_id)
+#   DBT_DATASET_PREFIX  → dataset prefix (from configs/ENV.yml → dataset_prefix)
+#   BQ_LOCATION         → BigQuery location (from configs/ENV.yml → bq_location)
+#   DBT_TARGET          → which target to activate (from configs/ENV.yml → dbt_target)
+#
+# DATASET NAMING:
+#   dbt BigQuery generates output datasets as: {dataset_prefix}_{schema}
+#   dev:  raw_dev + eds = raw_dev_eds,  raw_dev + ods = raw_dev_ods
+#   uat:  raw_uat + eds = raw_uat_eds,  raw_uat + ods = raw_uat_ods
+#   prod: raw     + eds = raw_eds,      raw     + ods = raw_ods
+# =============================================================================
+
+dbt_gcp_poc:
+  # Active target is set at runtime via DBT_TARGET env var.
+  # entrypoint.sh passes --target $DBT_TARGET to every dbt command.
+  target: dev
+
+  outputs:
+
+    # ── Development ───────────────────────────────────────────────────────────
+    dev:
+      type: bigquery
+      method: oauth                                          # keyless — uses ADC
+      project: "{{ env_var('GCP_PROJECT_ID') }}"            # injected by Cloud Run / local gcloud
+      dataset: "{{ env_var('DBT_DATASET_PREFIX', 'raw_dev') }}"  # raw_dev → raw_dev_eds, raw_dev_ods
+      location: "{{ env_var('BQ_LOCATION', 'us-east4') }}"
+      threads: 4
+      timeout_seconds: 300
+      priority: interactive
+      retries: 1
+
+    # ── UAT ───────────────────────────────────────────────────────────────────
+    uat:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT_ID') }}"
+      dataset: "{{ env_var('DBT_DATASET_PREFIX', 'raw_uat') }}"  # raw_uat → raw_uat_eds, raw_uat_ods
+      location: "{{ env_var('BQ_LOCATION', 'us-east4') }}"
+      threads: 4
+      timeout_seconds: 300
+      priority: interactive
+      retries: 1
+
+    # ── Production ────────────────────────────────────────────────────────────
+    prod:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT_ID') }}"
+      dataset: "{{ env_var('DBT_DATASET_PREFIX', 'raw') }}"  # raw → raw_eds, raw_ods
+      location: "{{ env_var('BQ_LOCATION', 'us-east4') }}"
+      threads: 4
+      timeout_seconds: 300
+      priority: interactive
+      retries: 1

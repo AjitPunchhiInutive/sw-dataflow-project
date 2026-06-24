@@ -1,0 +1,123 @@
+module "gcs_python" {
+  source        = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//gcs?ref=main"
+  project_id    = var.log_project_id
+  name          = "sw-rds-dataflow-gcs-itp"
+  location      = "us-east4"
+  versioning    = false
+  force_destroy = false
+  labels = {
+    cost-center = "devops"
+  }
+}
+
+resource "google_storage_bucket_object" "files" {
+  bucket       = module.gcs_python.name
+  name         = "templates/"
+  content      = " "
+  content_type = "application/x-directory"
+}
+
+module "bigquery-dataset" {
+  source = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//bigquery-dataset?ref=main"
+
+  project_id    = var.log_project_id
+  id            = "pubsub_gcs_dataflow"
+  friendly_name = "SW Pubsub Dataset test"
+  description   = "SW Pubsub Dataset test"
+  location      = "us-east4"
+
+  options = {
+    default_table_expiration_ms     = null
+    default_partition_expiration_ms = null
+    delete_contents_on_destroy      = false
+  }
+
+  tables = {
+    historian_stream = {
+      friendly_name       = "Historian Stream"
+      deletion_protection = true
+      schema = jsonencode([
+        { name = "messageid",      type = "INT64",     mode = "NULLABLE" },
+        { name = "status",         type = "INT64",     mode = "NULLABLE" },
+        { name = "tagname",        type = "STRING",    mode = "NULLABLE" },
+        { name = "epochtime",      type = "TIMESTAMP", mode = "NULLABLE" },
+        { name = "tagvalue",       type = "STRING",    mode = "NULLABLE" },
+        { name = "quality",        type = "INT64",     mode = "NULLABLE" },
+        { name = "sq",             type = "STRING",    mode = "NULLABLE" },
+        { name = "publish_time",   type = "TIMESTAMP", mode = "NULLABLE" },
+        { name = "ingestion_time", type = "TIMESTAMP", mode = "NULLABLE" },
+        { name = "rowhash",        type = "STRING",    mode = "NULLABLE" }
+      ])
+    }
+
+    historian_stream_error = {
+      friendly_name       = "Historian Stream Error"
+      deletion_protection = true
+      schema = jsonencode([
+        { name = "publish_time",   type = "TIMESTAMP", mode = "NULLABLE" },
+        { name = "ingestion_time", type = "TIMESTAMP", mode = "NULLABLE" },
+        { name = "raw_payload",    type = "STRING",    mode = "NULLABLE" },
+        { name = "error_message",  type = "STRING",    mode = "NULLABLE" }
+      ])
+    }
+    historian_stream_backupjob = {
+      friendly_name       = "Historian Stream backupjob"
+      deletion_protection = true
+      schema = jsonencode([
+        { name = "publish_time",   type = "TIMESTAMP", mode = "NULLABLE" },
+        { name = "ingestion_time", type = "TIMESTAMP", mode = "NULLABLE" },
+        { name = "raw_payload",    type = "STRING",    mode = "NULLABLE" },
+        { name = "error_message",  type = "STRING",    mode = "NULLABLE" }
+      ])
+    }
+    historian_stream_demo = {
+      friendly_name       = "Historian Stream demo"
+      deletion_protection = true
+      schema = jsonencode([
+        { name = "publish_time",   type = "TIMESTAMP", mode = "NULLABLE" },
+        { name = "ingestion_time", type = "TIMESTAMP", mode = "NULLABLE" },
+        { name = "raw_payload",    type = "STRING",    mode = "NULLABLE" },
+        { name = "error_message",  type = "STRING",    mode = "NULLABLE" }
+      ])
+    }
+  }
+}
+
+module "pubsub" {
+  source     = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//pubsub?ref=main"
+  project_id = var.log_project_id
+  name       = "pubsub-historian-dataflow_topic"
+  message_retention_duration = "604800s"
+  subscriptions = {
+    "proficy-historian-topic" = {
+      project_id                  = var.log_project_id
+      ack_deadline_seconds         = 600
+      message_retention_duration   = "604800s" # 7 days
+      retain_acked_messages        = false
+      filter                       = null
+      enable_message_ordering      = false
+      enable_exactly_once_delivery = false
+      expiration_policy_ttl        = null
+      push                         = null
+      bigquery                     = null
+      cloud_storage                = null
+      dead_letter_policy           = null
+      retry_policy = {
+        minimum_backoff = 10  # seconds
+        maximum_backoff = 600 # seconds
+      }
+    }
+  }
+}
+module "docker_artifact_registry"{
+  source     = "git@github.com:AjitPunchhiInutive/-sw-prod-udp-rds-infra-modules.git//artifact-registry?ref=main"
+  project_id = var.log_project_id
+  location   = "us-east4"
+  name       = "sw-dataflow-template"
+  format     = { docker = { standard = {} } }
+
+  labels = {
+    managed-by = "terraform"
+    purpose    = "dataflow-templates"
+  }
+}
