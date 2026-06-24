@@ -39,8 +39,6 @@ RUN pip install --no-cache-dir \
         "setuptools==82.0.1" \
         "wheel==0.46.3" && \
     # ── Override vulnerable pins in requirements.txt before install ────
-    sed -i 's/^pyarrow[=<>!].*/pyarrow>=23.0.1/' /tmp/requirements.txt && \
-    sed -i 's/^cryptography[=<>!].*/cryptography<=48.0.1/' /tmp/requirements.txt && \
     pip install --no-cache-dir -r /tmp/requirements.txt
 
 # ── Stage 3: clean runtime (no build tools, no libmbedtls) ───────────
@@ -51,8 +49,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get upgrade -y --no-install-recommends && \
     apt-get install -y --no-install-recommends \
-        default-jre-headless && \
-    apt-get clean && \
+        gcc g++ build-essential \
+        libffi-dev libc6-dev libssl-dev pkg-config \
+        cargo git && \
     rm -rf /var/lib/apt/lists/*
 
 # ── Upgrade pip/setuptools/wheel in the runtime layer too ─────────────
