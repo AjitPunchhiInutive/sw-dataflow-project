@@ -39,6 +39,7 @@ RUN pip install --no-cache-dir \
         "setuptools==82.0.1" \
         "wheel==0.46.3" && \
     # ── Override vulnerable pins in requirements.txt before install ────
+    sed -i 's/^pyarrow[=<>!].*/pyarrow>=23.0.1/' /tmp/requirements.txt && \
     pip install --no-cache-dir -r /tmp/requirements.txt
 
 # ── Stage 3: clean runtime (no build tools, no libmbedtls) ───────────
